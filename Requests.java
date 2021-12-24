@@ -1,7 +1,14 @@
 
 interface Request {
     String serialize();
+
+    static Request deserialize(String in_data) {
+        return null;
+    }
+
 }
+
+
 
 interface Response extends Request {
 
@@ -19,6 +26,11 @@ class RequestLogin implements Request {
 
     public String serialize() {
         return String.format("%d;%s;%s", REQUEST_NUMBER, username, password);
+    }
+
+    public static RequestLogin deserialize(String in_data) {
+        String[] split_data = in_data.split(";");
+        return new RequestLogin(split_data[0], split_data[1]);
     }
 }
 

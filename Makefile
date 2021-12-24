@@ -3,7 +3,7 @@ JFLAGS = -g
 
 .SUFFIXES: .java .class
 .java.class:
-	$(JC) $(JFLAGS) $*.java
+	$(JC) $(JFLAGS) -d build -cp build $*.java
 
 all: server client
 

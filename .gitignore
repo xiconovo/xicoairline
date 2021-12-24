@@ -1,2 +1,4 @@
 *.class
-users.txt
+build/users.txt
+xicoairline.iml
+.idea/

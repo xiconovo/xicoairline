@@ -53,11 +53,11 @@ class Server {
         public void run() {
             System.out.println("New Client");
 
-            while(client_connected) {
+            while (client_connected) {
                 try {
                     String in_data = in.readLine();
                     if (in_data != null) {
-                        System.out.println("Received: '" + in_data+ "'");
+                        System.out.println("Received: '" + in_data + "'");
                         executeRequest(in_data);
                     } else {
                         client_connected = false;
@@ -78,21 +78,35 @@ class Server {
         void executeRequest(String request_data) {
             String[] split_data = request_data.split(";", 2);
             int request_number = Integer.parseInt(split_data[0]);
-    
-            switch(request_number) {
-                case RequestLogin.REQUEST_NUMBER:
-                    RequestRegister req = RequestRegister.deserialize(split_data[1]);
+
+            switch (request_number) {
+                case RequestLogin.REQUEST_NUMBER: {
+                    RequestLogin req = RequestLogin.deserialize(split_data[1]);
                     boolean ok = user_manager.verifyUser(req.username, req.password);
                     Response response;
-                    if(ok) {
+                    if (ok) {
                         is_logged_in = true;
                         user = user_manager.getUserByName(req.username);
-                        response =  new ResponseOk(ok, "Login success");
+                        response = new ResponseOk(true, "Login success");
                     } else {
-                        response = new ResponseOk(ok, "Login failed");
+                        response = new ResponseOk(false, "Login failed");
                     }
                     sendResponse(response);
-                break;
+                }
+                    break;
+
+                case RequestRegister.REQUEST_NUMBER: {
+                    RequestRegister req = RequestRegister.deserialize(split_data[1]);
+                    boolean ok = user_manager.addUser(req.username,req.password);
+                    Response response;
+                    if(ok){
+                        response = new ResponseOk(true,"Register success");
+                    } else{
+                        response = new ResponseOk(false, "Regist failed");
+                    }
+                    sendResponse(response);
+                }
+                    break;
             }
         }
 
@@ -106,6 +120,7 @@ class Server {
         String name;
         String hash;
 
+
         public User(int id, String name, String hash) {
             this.id = id;
             this.name = name;
@@ -116,7 +131,7 @@ class Server {
     static String BACKUP_FILE = "users.txt";
 
     private class UserManager {
-        List<User> users = new LinkedList<User>();
+        List<User> users = new ArrayList<>();
 
         public boolean addUser(String name, String hash) {
             User user_found = getUserByName(name);
@@ -149,6 +164,7 @@ class Server {
                 users.add(new User(Integer.parseInt(split[0]), split[1], split[2]));
                 line = buf_reader.readLine();
             }
+            buf_reader.close();
         }
 
         public boolean verifyUser(String name, String hash) {
