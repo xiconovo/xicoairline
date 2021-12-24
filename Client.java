@@ -49,22 +49,32 @@ public class Client {
         option = sc.nextLine();
         Request req;
         if(option.equalsIgnoreCase("1")){
-            System.out.println("Insira o seu ID.");
-            username = sc.nextLine();
-            System.out.println("Insira a sua password.");
-            password = sc.nextLine();
+            username = insertUsername();
+            password = insertPassword();
             req = new RequestLogin(username,password);
             sendRequest(req);
         }
         if(option.equalsIgnoreCase("2")){
-            System.out.println("Insira o seu ID.");
-            username = sc.nextLine();
-            System.out.println("Insira a sua password.");
-            password = sc.nextLine();
+            username = insertUsername();
+            password = insertPassword();
             req = new RequestRegister(username,password);
             sendRequest(req);
         }
 
+    }
+
+    String insertUsername(){
+        String username;
+        System.out.println("Insira o seu ID.");
+        username = sc.nextLine();
+        return username;
+    }
+
+    String insertPassword(){
+        String password;
+        System.out.println("Insira a sua password.");
+        password = sc.nextLine();
+        return password;
     }
 
 
