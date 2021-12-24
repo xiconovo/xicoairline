@@ -1,14 +1,16 @@
 import java.net.*;
 import java.io.*;
+import java.util.Scanner;
 
 public class Client {
     final Socket sock;
     final PrintWriter out;
     final BufferedReader in;
     boolean is_logged_in = false;
+    Scanner sc = new Scanner(System.in);
 
     public static void main(String[] args) {
-        System.out.println("Hell World! I'm Client");
+        System.out.println("Hello World! I'm Client");
         int port = 4545;
         try {
             Client client = new Client("localhost", port);
@@ -26,8 +28,7 @@ public class Client {
     }
 
     void startClient(int port) throws IOException {
-        Request req = new RequestLogin("joao", "123");
-        sendRequest(req);
+        menu1();
         String data = in.readLine();
         ResponseOk response = ResponseOk.deserialize(data);
         is_logged_in = response.status;
@@ -39,4 +40,32 @@ public class Client {
         System.out.println("Executing: " + req.serialize());
         this.out.println(req.serialize());
     }
+
+    void menu1(){
+        String option;
+        String username;
+        String password;
+        System.out.println("Pressione:\n(1) Para se autenticar.\n(2) Para se registar.");
+        option = sc.nextLine();
+        Request req;
+        if(option.equalsIgnoreCase("1")){
+            System.out.println("Insira o seu ID.");
+            username = sc.nextLine();
+            System.out.println("Insira a sua password.");
+            password = sc.nextLine();
+            req = new RequestLogin(username,password);
+            sendRequest(req);
+        }
+        if(option.equalsIgnoreCase("2")){
+            System.out.println("Insira o seu ID.");
+            username = sc.nextLine();
+            System.out.println("Insira a sua password.");
+            password = sc.nextLine();
+            req = new RequestRegister(username,password);
+            sendRequest(req);
+        }
+
+    }
+
+
 }
