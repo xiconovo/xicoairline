@@ -28,12 +28,31 @@ public class Client {
     }
 
     void startClient(int port) throws IOException {
-        menu1();
-        String data = in.readLine();
-        ResponseOk response = ResponseOk.deserialize(data);
-        is_logged_in = response.status;
-        System.out.println("Server said: " + response.message);
-        sock.close();
+        while (!is_logged_in) {
+            int option = showMenu1();
+            Request req;
+            String username = insertUsername();
+            String password = insertPassword();
+            if (option == 1) {
+                req = new RequestLogin(username, password);
+                sendRequest(req);
+            } else if (option == 2) {
+                req = new RequestRegister(username, password);
+                sendRequest(req);
+            } else if (option == 0) {
+                stopClient();
+                System.exit(0);
+            } else {
+                System.out.println("Opcao Inválida");
+                stopClient();
+                System.exit(1);
+            }
+            String data = in.readLine();
+            ResponseOk response = ResponseOk.deserialize(data);
+            System.out.println("Server said: " + response.message);
+            is_logged_in = response.status;
+        }
+        stopClient();
     }
 
     void sendRequest(Request req) {
@@ -41,40 +60,51 @@ public class Client {
         this.out.println(req.serialize());
     }
 
-    void menu1(){
-        String option;
-        String username;
-        String password;
-        System.out.println("Pressione:\n(1) Para se autenticar.\n(2) Para se registar.");
-        option = sc.nextLine();
-        Request req;
-        if(option.equalsIgnoreCase("1")){
-            username = insertUsername();
-            password = insertPassword();
-            req = new RequestLogin(username,password);
-            sendRequest(req);
-        }
-        if(option.equalsIgnoreCase("2")){
-            username = insertUsername();
-            password = insertPassword();
-            req = new RequestRegister(username,password);
-            sendRequest(req);
-        }
-
+    int showMenu1() {
+        System.out.println("Pressione:\n(1) Para se autenticar.\n(2) Para se registar\n(0) Para sair.");
+        return Integer.parseInt(sc.nextLine());
     }
 
-    String insertUsername(){
-        String username;
+    String insertUsername() {
         System.out.println("Insira o seu ID.");
-        username = sc.nextLine();
-        return username;
+        return sc.nextLine();
     }
 
-    String insertPassword(){
-        String password;
+    String insertPassword() {
         System.out.println("Insira a sua password.");
-        password = sc.nextLine();
-        return password;
+        return sc.nextLine();
+    }
+
+    void stopClient() throws IOException {
+        System.out.println("Cliente desconectou-se.");
+        sock.close();
+    }
+
+    void showMainMenu() {
+        while (true) {
+            System.out.println("Bem vindo à nossa Companhia! Pressione:\n(1) Para efetuar a reserva de uma viagem.\n(2) Obter a lista de todos os voos disponíveis.\n(3) Cancelar uma reserva.\n(4) Sair.");
+            String executar = sc.nextLine();
+            if (executar.equalsIgnoreCase("1")) {
+                String source, destin, inicio, fim;
+                System.out.println("Insira a origem do seu voo!");
+                source = sc.nextLine();
+                System.out.println("Insira o destino do seu voo!");
+                destin = sc.nextLine();
+                System.out.println("Insira um intervalo de datas possíveis.\nData de inicio: Dia-Mes-Ano\n(Exemplo: 01-04-2008)");
+                inicio = sc.nextLine();
+                System.out.println("Data final: Dia-Mes-Ano\n(Exemplo: 01-04-2008)");
+                fim = sc.nextLine();
+
+            }
+            if (executar.equalsIgnoreCase("2")) {
+
+            }
+            if (executar.equalsIgnoreCase("3")) {
+
+            } else {
+
+            }
+        }
     }
 
 
