@@ -1,3 +1,7 @@
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 interface Request {
     String serialize();
@@ -7,7 +11,6 @@ interface Request {
     }
 
 }
-
 
 
 interface Response extends Request {
@@ -88,4 +91,36 @@ class RequestAddFlight implements Request {
     public String serialize() {
         return String.format("%d;%s;%s;%d", REQUEST_NUMBER, origin, destination, destination);
     }
+}
+
+class RequestBooking implements Request {
+    static final int REQUEST_NUMBER = 4;
+    final String origin;
+    final String destination;
+    final Date start;
+    final Date end;
+
+
+    public RequestBooking(String origin, String destination, Date start, Date end) {
+        this.origin = origin;
+        this.destination = destination;
+        this.start = start;
+        this.end = end;
+    }
+
+    public String serialize() {
+        DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+        String started = dateFormat.format(start);
+        String ended = dateFormat.format(end);
+        return String.format("%d;%s;%s;%s;%s", REQUEST_NUMBER, origin, destination, started, ended);
+    }
+
+    public RequestBooking deserialize(String in_data) throws ParseException {
+        String[] split_data = in_data.split(";");
+        SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy");
+        Date start = formatter.parse(split_data[2]);
+        Date end = formatter.parse(split_data[3]);
+        return new RequestBooking(split_data[0], split_data[1], start, end);
+    }
+
 }

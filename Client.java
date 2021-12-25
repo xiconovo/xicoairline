@@ -1,5 +1,9 @@
 import java.net.*;
 import java.io.*;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Scanner;
 
 public class Client {
@@ -27,10 +31,12 @@ public class Client {
         this.in = new BufferedReader(new InputStreamReader(this.sock.getInputStream()));
     }
 
-    void startClient(int port) throws IOException {
+    void startClient(int port) throws IOException, ParseException {
+        boolean exit = false;
+        int option;
+        Request req;
         while (!is_logged_in) {
-            int option = showMenu1();
-            Request req;
+            option = showMenu1();
             String username = insertUsername();
             String password = insertPassword();
             if (option == 1) {
@@ -51,6 +57,24 @@ public class Client {
             ResponseOk response = ResponseOk.deserialize(data);
             System.out.println("Server said: " + response.message);
             is_logged_in = response.status;
+        }
+        while(!exit){
+            option = showMainMenu();
+            if(option == 1){
+                sendBooking();
+                //reserva
+            }else if(option == 2){
+                //lista de voos
+            }else if(option == 3){
+                //cancelar uma reserva
+            }else if(option == 0){
+                exit = true;
+                //sair
+            }else{
+                System.out.println("Opcao Inválida");
+                stopClient();
+                System.exit(1);
+            }
         }
         stopClient();
     }
@@ -80,32 +104,44 @@ public class Client {
         sock.close();
     }
 
-    void showMainMenu() {
-        while (true) {
-            System.out.println("Bem vindo à nossa Companhia! Pressione:\n(1) Para efetuar a reserva de uma viagem.\n(2) Obter a lista de todos os voos disponíveis.\n(3) Cancelar uma reserva.\n(4) Sair.");
-            String executar = sc.nextLine();
-            if (executar.equalsIgnoreCase("1")) {
-                String source, destin, inicio, fim;
-                System.out.println("Insira a origem do seu voo!");
-                source = sc.nextLine();
-                System.out.println("Insira o destino do seu voo!");
-                destin = sc.nextLine();
-                System.out.println("Insira um intervalo de datas possíveis.\nData de inicio: Dia-Mes-Ano\n(Exemplo: 01-04-2008)");
-                inicio = sc.nextLine();
-                System.out.println("Data final: Dia-Mes-Ano\n(Exemplo: 01-04-2008)");
-                fim = sc.nextLine();
-
-            }
-            if (executar.equalsIgnoreCase("2")) {
-
-            }
-            if (executar.equalsIgnoreCase("3")) {
-
-            } else {
-
-            }
-        }
+    int showMainMenu() {
+            System.out.println("Bem vindo à nossa Companhia! Pressione:\n(1) Para efetuar a reserva de uma viagem.\n(2) Obter a lista de todos os voos disponíveis.\n(3) Cancelar uma reserva.\n(0) Sair.");
+            return Integer.parseInt(sc.nextLine());
     }
+
+    void sendBooking() throws ParseException {
+        String origin = insertOrigin();
+        String destination = insertDestination();
+        Date start = insertStart();
+        Date end = insertEnd();
+        Request req = new RequestBooking(origin,destination,start,end);
+        sendRequest(req);
+    }
+
+    String insertOrigin(){
+        System.out.println("Insira a origem do seu Voo.");
+        return sc.nextLine();
+    }
+
+    String insertDestination(){
+        System.out.println("Insira o Destino do seu Voo.");
+        return sc.nextLine();
+    }
+
+    Date insertStart() throws ParseException {
+        System.out.println("Insira a data inicial.");
+        DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+        return dateFormat.parse(sc.nextLine());
+    }
+
+    Date insertEnd() throws ParseException {
+        System.out.println("Insira a data final.");
+        DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+        return dateFormat.parse(sc.nextLine());
+    }
+
+
+
 
 
 }
