@@ -1,11 +1,16 @@
 import java.net.*;
 import java.io.*;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 class Server {
     static int PORT = 4545;
     boolean running = true;
     UserManager user_manager = new UserManager();
+    BookingManager booking_manager = new BookingManager();
+    int reservedCounter = 0;
 
     public static void main(String[] args) {
         System.out.println("Hell World! I'm Server");
@@ -75,7 +80,7 @@ class Server {
             }
         }
 
-        void executeRequest(String request_data) {
+        void executeRequest(String request_data) throws ParseException {
             String[] split_data = request_data.split(";", 2);
             int request_number = Integer.parseInt(split_data[0]);
 
@@ -93,20 +98,34 @@ class Server {
                     }
                     sendResponse(response);
                 }
-                    break;
+                break;
 
                 case RequestRegister.REQUEST_NUMBER: {
                     RequestRegister req = RequestRegister.deserialize(split_data[1]);
-                    boolean ok = user_manager.addUser(req.username,req.password);
+                    boolean ok = user_manager.addUser(req.username, req.password);
                     Response response;
-                    if(ok){
-                        response = new ResponseOk(true,"Register success");
-                    } else{
+                    if (ok) {
+                        response = new ResponseOk(true, "Register success");
+                    } else {
                         response = new ResponseOk(false, "Regist failed");
                     }
                     sendResponse(response);
                 }
-                    break;
+                break;
+
+                case RequestBooking.REQUEST_NUMBER: {
+                    RequestBooking req = RequestBooking.deserialize(split_data[1]);
+                    int codeReserve = booking_manager.reserveTrip(req.route, req.start, req.end);
+                    Response response;
+                    if (codeReserve >= 0) {
+                        response = new ResponseBooking(true, "Booked successful", reservedCounter);
+                    } else {
+                        response = new ResponseBooking(true, "Unsuccessful reserved", -1);
+                    }
+                    sendResponse(response);
+                }
+                break;
+
             }
         }
 
@@ -128,7 +147,8 @@ class Server {
         }
     }
 
-    static String BACKUP_FILE = "users.txt";
+    static String BACKUP_FILE_USERS = "users.txt";
+    static String BACKUP_FILE_TRIPS = "trips.txt";
 
     private class UserManager {
         List<User> users = new ArrayList<>();
@@ -145,7 +165,7 @@ class Server {
         }
 
         public void saveUsers() throws IOException {
-            FileWriter file_writer = new FileWriter(BACKUP_FILE);
+            FileWriter file_writer = new FileWriter(BACKUP_FILE_USERS);
             PrintWriter print_writer = new PrintWriter(file_writer);
             for (User user : users) {
                 print_writer.printf("%d,%s,%s\n", user.id, user.name, user.hash);
@@ -154,7 +174,7 @@ class Server {
         }
 
         public void restoreUsers() throws IOException {
-            FileReader file_reader = new FileReader(BACKUP_FILE);
+            FileReader file_reader = new FileReader(BACKUP_FILE_USERS);
             BufferedReader buf_reader = new BufferedReader(file_reader);
 
             String line = buf_reader.readLine();
@@ -184,4 +204,57 @@ class Server {
             return null;
         }
     }
+    /*
+    [Portugal,Espanha,Franca,Suica,Belgica]
+
+
+    private class BookingManager {
+        Map<Date,List<Flight>> flightsPerDay = new HashMap<>();
+
+        public int reserveTrip(String route, Date start, Date end) {
+
+            String[] countrys = route.split("-");
+            int size = countrys.length - 1;
+            if()
+            for(int i = 0; i<countrys.length; i++){
+                hasCapacity(countrys[i],countrys[i+1]);
+            }
+
+
+
+        }
+
+        public Date compareDate(Date start, Date end, Flight f) {
+            Date tmpDate = f.getDay();
+            if ((tmpDate.after(start) && tmpDate.before(end)) || tmpDate.equals(start) || tmpDate.equals(end)) {
+                return tmpDate;
+            }
+            return null;
+        }
+
+        public boolean compareCountrys(String source, String destination, Flight f) { // true caso um voo tenho a origem e o destino desejados
+            return f.getSource().equalsIgnoreCase(source) && f.getDestination().equalsIgnoreCase(destination);
+        }
+
+
+        public Flight getFlightByID(int id) {
+            for (Flight f : flights) {
+                if (f.getId() == id) {
+                    return f;
+                }
+            }
+            return null;
+        }
+
+
+    }
+
+     */
+
+    private class AdminManager{
+
+    }
+
+
+
 }

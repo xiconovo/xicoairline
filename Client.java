@@ -11,6 +11,8 @@ public class Client {
     final PrintWriter out;
     final BufferedReader in;
     boolean is_logged_in = false;
+    boolean is_registed = false;
+    int reservedCode;
     Scanner sc = new Scanner(System.in);
 
     public static void main(String[] args) {
@@ -19,7 +21,7 @@ public class Client {
         try {
             Client client = new Client("localhost", port);
             client.startClient(port);
-        } catch (IOException e) {
+        } catch (IOException | ParseException e) {
             System.out.println(
                     "Exception caught when trying to connect on port " + port + " or listening for a connection");
         }
@@ -35,6 +37,9 @@ public class Client {
         boolean exit = false;
         int option;
         Request req;
+        String data;
+        ResponseOk response;
+        ResponseBooking responseBooking;
         while (!is_logged_in) {
             option = showMenu1();
             String username = insertUsername();
@@ -42,9 +47,15 @@ public class Client {
             if (option == 1) {
                 req = new RequestLogin(username, password);
                 sendRequest(req);
+                data = in.readLine();
+                response = ResponseOk.deserialize(data);
+                is_logged_in = response.status;
             } else if (option == 2) {
                 req = new RequestRegister(username, password);
                 sendRequest(req);
+                data = in.readLine();
+                response = ResponseOk.deserialize(data);
+                is_registed = response.status;
             } else if (option == 0) {
                 stopClient();
                 System.exit(0);
@@ -53,15 +64,20 @@ public class Client {
                 stopClient();
                 System.exit(1);
             }
-            String data = in.readLine();
-            ResponseOk response = ResponseOk.deserialize(data);
-            System.out.println("Server said: " + response.message);
-            is_logged_in = response.status;
         }
         while(!exit){
             option = showMainMenu();
             if(option == 1){
                 sendBooking();
+                data = in.readLine();
+                responseBooking = ResponseBooking.deserialize(data);
+                reservedCode = responseBooking.codeReserve;
+                if(reservedCode == -1){
+                    System.out.println(responseBooking.message);
+                }else{
+                    System.out.println(responseBooking.message);
+                    System.out.println("Codigo da sua reserva: " + responseBooking.codeReserve);
+                }
                 //reserva
             }else if(option == 2){
                 //lista de voos
@@ -110,32 +126,26 @@ public class Client {
     }
 
     void sendBooking() throws ParseException {
-        String origin = insertOrigin();
-        String destination = insertDestination();
+        String route = insertRoute();
         Date start = insertStart();
         Date end = insertEnd();
-        Request req = new RequestBooking(origin,destination,start,end);
+        Request req = new RequestBooking(route,start,end);
         sendRequest(req);
     }
 
-    String insertOrigin(){
-        System.out.println("Insira a origem do seu Voo.");
+
+    String insertRoute(){
+        System.out.println("Insira o trajeto que deseja realizar.\n~Exemplo: Se deseja partir em Portugal, passar em Inglaterra e chegar a Franca deve inserir:\n'Portugal-Inglaterra-Franca'.~");
         return sc.nextLine();
     }
-
-    String insertDestination(){
-        System.out.println("Insira o Destino do seu Voo.");
-        return sc.nextLine();
-    }
-
     Date insertStart() throws ParseException {
-        System.out.println("Insira a data inicial.");
+        System.out.println("Insira a data inicial.(Exemplo: 03-05-2009)->(dia-mes-ano)");
         DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
         return dateFormat.parse(sc.nextLine());
     }
 
     Date insertEnd() throws ParseException {
-        System.out.println("Insira a data final.");
+        System.out.println("Insira a data final.(Exemplo: 03-05-2009)->(dia-mes-ano)");
         DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
         return dateFormat.parse(sc.nextLine());
     }

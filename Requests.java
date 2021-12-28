@@ -56,6 +56,29 @@ class ResponseOk implements Response {
     }
 }
 
+class ResponseBooking implements Response {
+    final boolean status;
+    final String message;
+    final int codeReserve;
+
+    public ResponseBooking(boolean ok, String message, int codeReserve) {
+        this.status = ok;
+        this.message = message;
+        this.codeReserve = codeReserve;
+    }
+
+    public String serialize() {
+
+        return String.format("%b;%s;%d", status, message,codeReserve);
+    }
+
+    public static ResponseBooking deserialize(String in_data) {
+        String[] split_data = in_data.split(";");
+        return new ResponseBooking(Boolean.parseBoolean(split_data[0]), split_data[1],Integer.parseInt(split_data[2]));
+    }
+}
+
+
 class RequestRegister implements Request {
     static final int REQUEST_NUMBER = 2;
     final String username;
@@ -89,38 +112,36 @@ class RequestAddFlight implements Request {
     }
 
     public String serialize() {
-        return String.format("%d;%s;%s;%d", REQUEST_NUMBER, origin, destination, destination);
+        return String.format("%d;%s;%s;%d", REQUEST_NUMBER, origin, destination, capacity);
     }
 }
 
 class RequestBooking implements Request {
     static final int REQUEST_NUMBER = 4;
-    final String origin;
-    final String destination;
+    final String route;
     final Date start;
     final Date end;
 
 
-    public RequestBooking(String origin, String destination, Date start, Date end) {
-        this.origin = origin;
-        this.destination = destination;
+    public RequestBooking(String route, Date start, Date end) {
+        this.route = route;
         this.start = start;
         this.end = end;
     }
 
-    public String serialize() {
+    public String serialize(){
         DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
         String started = dateFormat.format(start);
         String ended = dateFormat.format(end);
-        return String.format("%d;%s;%s;%s;%s", REQUEST_NUMBER, origin, destination, started, ended);
+        return String.format("%s;%s;%s", route,start,end);
     }
 
-    public RequestBooking deserialize(String in_data) throws ParseException {
+    public static RequestBooking deserialize(String in_data) throws ParseException {
         String[] split_data = in_data.split(";");
         SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy");
-        Date start = formatter.parse(split_data[2]);
-        Date end = formatter.parse(split_data[3]);
-        return new RequestBooking(split_data[0], split_data[1], start, end);
+        Date start = formatter.parse(split_data[1]);
+        Date end = formatter.parse(split_data[2]);
+        return new RequestBooking(split_data[0],start,end);
     }
-
 }
+
