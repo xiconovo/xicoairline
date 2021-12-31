@@ -10,6 +10,7 @@ class Server {
     boolean running = true;
     UserManager user_manager = new UserManager();
     BookingManager booking_manager = new BookingManager();
+    Map<Integer,Reserva> reservedBookings = new HashMap<>();
     int reservedCounter = 0;
 
     public static void main(String[] args) {
@@ -115,12 +116,18 @@ class Server {
 
                 case RequestBooking.REQUEST_NUMBER: {
                     RequestBooking req = RequestBooking.deserialize(split_data[1]);
-                    int codeReserve = booking_manager.reserveTrip(req.route, req.start, req.end);
+                    Date date = booking_manager.reservedOnDate(req.route, req.start, req.end);
+                    DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+                    String dateString = dateFormat.format(date);
                     Response response;
-                    if (codeReserve >= 0) {
-                        response = new ResponseBooking(true, "Booked successful", reservedCounter);
+                    if (dateString.equalsIgnoreCase("00/00/0000")) {
+                        response = new ResponseBooking(false, "Unsuccessful reserved", -1);
                     } else {
-                        response = new ResponseBooking(true, "Unsuccessful reserved", -1);
+                        reservedCounter++; // WARNING: LOCK
+                        Reserva newBooking = new Reserva(reservedCounter,date,user,booking_manager.trip);
+                        reservedBookings.put(reservedCounter,newBooking);
+                        response = new ResponseBooking(true, "Booked successful on day " + dateString, reservedCounter);
+
                     }
                     sendResponse(response);
                 }
@@ -148,7 +155,7 @@ class Server {
     }
 
     static String BACKUP_FILE_USERS = "users.txt";
-    static String BACKUP_FILE_TRIPS = "trips.txt";
+    static String BACKUP_FILE_FLIGHTS = "trips.txt";
 
     private class UserManager {
         List<User> users = new ArrayList<>();
@@ -204,56 +211,98 @@ class Server {
             return null;
         }
     }
-    /*
-    [Portugal,Espanha,Franca,Suica,Belgica]
+
 
 
     private class BookingManager {
-        Map<Date,List<Flight>> flightsPerDay = new HashMap<>();
+        public List<Flight> flights = new ArrayList<>(); // lista de voos geral
+        public Map<Date,List<Flight>> flightsPerDay = new HashMap<>(); // Lista de voos para cada dia geral
+        public List<Flight> trip = new ArrayList<>(); // lista com os voos de uma dada reserva
 
-        public int reserveTrip(String route, Date start, Date end) {
 
+
+        public void anotherDay(Date data){
+            if(!flightsPerDay.containsKey(data)){
+                flightsPerDay.put(data,flights);
+            }
+        }
+
+
+
+        public Date reservedOnDate(String route, Date start, Date end) throws ParseException {
+            SimpleDateFormat DateFor = new SimpleDateFormat("dd/MM/yyyy");
+            Date bookedOn = DateFor.parse("00/00/0000");
+            Calendar c = Calendar.getInstance();
             String[] countrys = route.split("-");
             int size = countrys.length - 1;
-            if()
-            for(int i = 0; i<countrys.length; i++){
-                hasCapacity(countrys[i],countrys[i+1]);
+            Flight flightToAdd;
+            while(start.before(end) || start.equals(end)){
+                List<Flight> toReserve = new ArrayList<>();
+                int thereIsFlight = 0;
+                for(int i = 0; i<size; i++){
+                    flightToAdd = isThereFlightRemoveCapacity(countrys[i],countrys[i+1],flightsPerDay.get(start));
+                    if(flightToAdd == null){
+                        thereIsFlight = -1;
+                        break;
+                    }
+                    toReserve.add(flightToAdd);
+                }
+                if(thereIsFlight == 0){
+                    for(Flight f : toReserve){ // WARNING: LOCKS
+                        trip.add(f);
+                        int capacity = f.getCapacity();
+                        capacity--;
+                        f.setCapacity(capacity);
+                    }
+                    return start;
+                }
+                //em baixo é somar 1 ao dia
+                c.setTime(start);
+                c.add(Calendar.DATE, 1);
+                start = c.getTime();
             }
-
+            return bookedOn;
 
 
         }
 
-        public Date compareDate(Date start, Date end, Flight f) {
-            Date tmpDate = f.getDay();
-            if ((tmpDate.after(start) && tmpDate.before(end)) || tmpDate.equals(start) || tmpDate.equals(end)) {
-                return tmpDate;
-            }
-            return null;
-        }
-
-        public boolean compareCountrys(String source, String destination, Flight f) { // true caso um voo tenho a origem e o destino desejados
-            return f.getSource().equalsIgnoreCase(source) && f.getDestination().equalsIgnoreCase(destination);
-        }
 
 
-        public Flight getFlightByID(int id) {
-            for (Flight f : flights) {
-                if (f.getId() == id) {
-                    return f;
+        public Flight isThereFlightRemoveCapacity(String source, String destination, List<Flight> flights){
+            Flight ret = null;
+            for(Flight f : flights){
+                if(f.getSource().equalsIgnoreCase(source) && f.getDestination().equalsIgnoreCase(destination)){
+                    int capacity = f.getCapacity(); // WARNING: LOCK
+                    if(capacity>0){
+                        ret = f;
+                        break;
+                    }
                 }
             }
-            return null;
+            return ret;
         }
 
 
-    }
 
-     */
-
-    private class AdminManager{
 
     }
+
+    private class Reserva{
+        private int codeReserve;
+        private Date day;
+        private User user;
+        private List<Flight> trip;
+
+        public Reserva(int codeReserve, Date day,User user,List<Flight> trip){
+            this.codeReserve = codeReserve;
+            this.day = day;
+            this.user = user;
+            this.trip = trip;
+        }
+
+    }
+
+
 
 
 
