@@ -9,6 +9,12 @@ public class Flight{
     private String destination;
     private int capacity;
 
+    public Flight(String source, String destination, int capacity) {
+        this.source = source;
+        this.destination = destination;
+        this.capacity = capacity;
+    }
+
 
     public String getSource() {
         return source;

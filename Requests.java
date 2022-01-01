@@ -145,3 +145,19 @@ class RequestBooking implements Request {
     }
 }
 
+class RequestBookingCancel implements Request{
+    static final int REQUEST_NUMBER = 5;
+    final int codeReserve;
+
+
+    public RequestBookingCancel(int codeReserve){
+        this.codeReserve = codeReserve;
+    }
+
+    public String serialize(){
+        return String.format("%d",codeReserve);
+    }
+
+
+}
+

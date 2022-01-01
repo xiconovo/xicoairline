@@ -22,6 +22,8 @@ class Server {
     void startServer(int port) {
         try {
             user_manager.restoreUsers();
+            booking_manager.restoreFlights(); // *** VERIFICAR ***
+            booking_manager.restoreFlightsPerDay(); // *** VERIFICAR ***
         } catch (IOException e) {
             System.out.println("Failed to restore users: " + e);
         }
@@ -133,6 +135,10 @@ class Server {
                 }
                 break;
 
+                case RequestBookingCancel.REQUEST_NUMBER: {
+                    RequestBookingCancel req = RequestBookingCancel.deserialize(split_data[1]);
+                }
+
             }
         }
 
@@ -155,7 +161,8 @@ class Server {
     }
 
     static String BACKUP_FILE_USERS = "users.txt";
-    static String BACKUP_FILE_FLIGHTS = "trips.txt";
+    static String BACKUP_FILE_FLIGHTS = "flights.txt";
+    static String BACKUP_FILE_FLIGHTS_PER_DAY = "flightsPerDay.txt";
 
     private class UserManager {
         List<User> users = new ArrayList<>();
@@ -227,8 +234,6 @@ class Server {
             }
         }
 
-
-
         public Date reservedOnDate(String route, Date start, Date end) throws ParseException {
             SimpleDateFormat DateFor = new SimpleDateFormat("dd/MM/yyyy");
             Date bookedOn = DateFor.parse("00/00/0000");
@@ -266,8 +271,6 @@ class Server {
 
         }
 
-
-
         public Flight isThereFlightRemoveCapacity(String source, String destination, List<Flight> flights){
             Flight ret = null;
             for(Flight f : flights){
@@ -282,6 +285,34 @@ class Server {
             return ret;
         }
 
+        public void saveFlights() throws IOException {
+            FileWriter file_writer = new FileWriter(BACKUP_FILE_FLIGHTS);
+            PrintWriter print_writer = new PrintWriter(file_writer);
+            for (Flight flight : flights) {
+                print_writer.printf("%s,%s,%d\n", flight.getSource(), flight.getDestination(), flight.getCapacity());
+            }
+            print_writer.close();
+        }
+
+        public void restoreFlights() throws IOException {
+            FileReader file_reader = new FileReader(BACKUP_FILE_FLIGHTS);
+            BufferedReader buf_reader = new BufferedReader(file_reader);
+
+            String line = buf_reader.readLine();
+            while (line != null) {
+                String[] split = line.split(",");
+                // todo: verify split is ok
+                flights.add(new Flight(split[0], split[1], Integer.parseInt(split[2])));
+                line = buf_reader.readLine();
+            }
+            buf_reader.close();
+        }
+
+        public void saveFlightsPerDay() throws IOException {
+            FileWriter file_writer = new FileWriter(BACKUP_FILE_FLIGHTS_PER_DAY);
+            PrintWriter print_writer = new PrintWriter(file_writer);
+            for()
+        }
 
 
 
@@ -300,6 +331,9 @@ class Server {
             this.trip = trip;
         }
 
+        public int getCodeReserve() {
+            return codeReserve;
+        }
     }
 
 

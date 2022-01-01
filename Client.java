@@ -3,7 +3,9 @@ import java.io.*;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Scanner;
 
 public class Client {
@@ -22,8 +24,7 @@ public class Client {
             Client client = new Client("localhost", port);
             client.startClient(port);
         } catch (IOException | ParseException e) {
-            System.out.println(
-                    "Exception caught when trying to connect on port " + port + " or listening for a connection");
+            System.out.println("Exception caught when trying to connect on port " + port + " or listening for a connection");
         }
     }
 
@@ -34,6 +35,7 @@ public class Client {
     }
 
     void startClient(int port) throws IOException, ParseException {
+        List<Integer> reservas = new ArrayList<>();
         boolean exit = false;
         int option;
         Request req;
@@ -75,13 +77,16 @@ public class Client {
                 if(reservedCode == -1){
                     System.out.println(responseBooking.message);
                 }else{
+                    reservas.add(reservedCode);
                     System.out.println(responseBooking.message);
                     System.out.println("Codigo da sua reserva: " + responseBooking.codeReserve);
                 }
                 //reserva
             }else if(option == 2){
                 //lista de voos
+
             }else if(option == 3){
+                sendBookingCancel();
                 //cancelar uma reserva
             }else if(option == 0){
                 exit = true;
@@ -131,6 +136,10 @@ public class Client {
         Date end = insertEnd();
         Request req = new RequestBooking(route,start,end);
         sendRequest(req);
+    }
+
+    void sendBookingCancel(){
+
     }
 
 
