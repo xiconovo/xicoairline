@@ -7,7 +7,7 @@ JFLAGS = -g
 
 all: server client
 
-server: Requests.class Server.class 
+server: Flight.class Requests.class Server.class 
 
 client: Requests.class Client.class 
 

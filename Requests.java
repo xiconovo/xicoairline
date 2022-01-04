@@ -133,7 +133,7 @@ class RequestBooking implements Request {
         DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
         String started = dateFormat.format(start);
         String ended = dateFormat.format(end);
-        return String.format("%s;%s;%s", route,start,end);
+        return String.format("%d;%s;%s;%s", REQUEST_NUMBER,route,start,end);
     }
 
     public static RequestBooking deserialize(String in_data) throws ParseException {
@@ -156,6 +156,10 @@ class RequestBookingCancel implements Request{
 
     public String serialize(){
         return String.format("%d",codeReserve);
+    }
+
+    public static RequestBookingCancel deserialize(String in_data) throws ParseException {
+       return null;
     }
 
 

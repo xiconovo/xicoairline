@@ -13,18 +13,41 @@ class Server {
     Map<Integer,Reserva> reservedBookings = new HashMap<>();
     int reservedCounter = 0;
 
-    public static void main(String[] args) {
-        System.out.println("Hell World! I'm Server");
+    public static void main(String[] args) throws ParseException {
+        System.out.println("Hello World! I'm Server");
         Server server = new Server();
         server.startServer(PORT);
     }
 
-    void startServer(int port) {
+    void startServer(int port) throws ParseException {
+
+        /* BookingManager mng = new BookingManager();
+        try {
+            mng.restoreFlights();
+            mng.restoreFlightsPerDay();
+            SimpleDateFormat DateFor = new SimpleDateFormat("dd/MM/yyyy");
+            Date date = DateFor.parse("06/01/2022");
+            Date reserva = mng.reservedOnDate("braga-asdasd",date, date);
+            System.out.println("UM " + DateFor.format(reserva));
+            reserva = mng.reservedOnDate("braga-faro", date, date);
+            System.out.println("DOIS " +   DateFor.format(reserva));
+            mng.saveFlightsPerDay();
+
+
+        } catch (Exception e) {
+            System.out.println("fodeu" + e);
+        }
+        System.exit(1);
+
+         */
+
+
+
         try {
             user_manager.restoreUsers();
             booking_manager.restoreFlights(); // *** VERIFICAR ***
             booking_manager.restoreFlightsPerDay(); // *** VERIFICAR ***
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.out.println("Failed to restore users: " + e);
         }
 
@@ -170,7 +193,7 @@ class Server {
         public boolean addUser(String name, String hash) {
             User user_found = getUserByName(name);
             if (user_found != null) {
-                System.out.println("User already exsists");
+                System.out.println("User already exists");
                 return false;
             }
 
@@ -235,6 +258,7 @@ class Server {
         }
 
         public Date reservedOnDate(String route, Date start, Date end) throws ParseException {
+            System.out.println("entrou aqui sequer?");
             SimpleDateFormat DateFor = new SimpleDateFormat("dd/MM/yyyy");
             Date bookedOn = DateFor.parse("00/00/0000");
             Calendar c = Calendar.getInstance();
@@ -245,7 +269,7 @@ class Server {
                 List<Flight> toReserve = new ArrayList<>();
                 int thereIsFlight = 0;
                 for(int i = 0; i<size; i++){
-                    flightToAdd = isThereFlightRemoveCapacity(countrys[i],countrys[i+1],flightsPerDay.get(start));
+                    flightToAdd = isThereFlight(countrys[i],countrys[i+1], start);
                     if(flightToAdd == null){
                         thereIsFlight = -1;
                         break;
@@ -255,9 +279,7 @@ class Server {
                 if(thereIsFlight == 0){
                     for(Flight f : toReserve){ // WARNING: LOCKS
                         trip.add(f);
-                        int capacity = f.getCapacity();
-                        capacity--;
-                        f.setCapacity(capacity);
+                        f.setCapacity(f.getCapacity()-1);
                     }
                     return start;
                 }
@@ -271,19 +293,40 @@ class Server {
 
         }
 
-        public Flight isThereFlightRemoveCapacity(String source, String destination, List<Flight> flights){
+        public Flight isThereFlight(String source, String destination, Date day){
             Flight ret = null;
-            for(Flight f : flights){
-                if(f.getSource().equalsIgnoreCase(source) && f.getDestination().equalsIgnoreCase(destination)){
-                    int capacity = f.getCapacity(); // WARNING: LOCK
-                    if(capacity>0){
-                        ret = f;
-                        break;
+
+            List<Flight> day_flights =  flightsPerDay.get(day);
+            if (day_flights != null) {
+                for(Flight f : day_flights){
+                    if(f.getSource().equalsIgnoreCase(source) && f.getDestination().equalsIgnoreCase(destination)){
+                        int capacity = f.getCapacity(); // WARNING: LOCK
+                        if(capacity > 0){
+                            System.out.println("found flight " + f);
+                            return f;
+                        } else {
+                            System.out.println("flight full " + f);
+                            return null;
+                        }
                     }
+                }
+            }
+
+            for(Flight f : this.flights){
+                if(f.getSource().equalsIgnoreCase(source) && f.getDestination().equalsIgnoreCase(destination)){
+                    if (day_flights != null) {
+                        day_flights.add(f);
+                    } else {
+                        List<Flight> new_flight_list = new ArrayList<>();
+                        new_flight_list.add(f);
+                        flightsPerDay.put(day, new_flight_list);
+                    }
+                    ret = f;
                 }
             }
             return ret;
         }
+
 
         public void saveFlights() throws IOException {
             FileWriter file_writer = new FileWriter(BACKUP_FILE_FLIGHTS);
@@ -309,9 +352,40 @@ class Server {
         }
 
         public void saveFlightsPerDay() throws IOException {
+            SimpleDateFormat date_format = new SimpleDateFormat("dd/MM/yyyy");
             FileWriter file_writer = new FileWriter(BACKUP_FILE_FLIGHTS_PER_DAY);
             PrintWriter print_writer = new PrintWriter(file_writer);
-            for()
+
+            for (Map.Entry<Date,List<Flight>> entry : flightsPerDay.entrySet()) {
+                String line = date_format.format(entry.getKey()) + ";";
+                for (Flight flight : entry.getValue()) {
+                    line += String.format("%s,%s,%d;", flight.getSource(), flight.getDestination(), flight.getCapacity());
+                }
+                line += "\n";
+                print_writer.write(line);
+            }
+           print_writer.close();
+        }
+
+        public void restoreFlightsPerDay() throws IOException, ParseException {
+            SimpleDateFormat date_format = new SimpleDateFormat("dd/MM/yyyy");
+            FileReader file_reader = new FileReader(BACKUP_FILE_FLIGHTS_PER_DAY);
+            BufferedReader buf_reader = new BufferedReader(file_reader);
+
+            String line = buf_reader.readLine();
+            while (line != null) {
+                String[] split = line.split(";");
+                Date date = date_format.parse(split[0]);
+                List<Flight> day_flights = new ArrayList<>();
+                for (int i = 1; i < split.length; i++) {
+                    String[] flight_split = split[i].split(",");
+                    day_flights.add(new Flight(flight_split[0], flight_split[1], Integer.parseInt(flight_split[2])));
+                }
+
+                flightsPerDay.put(date, day_flights);
+                line = buf_reader.readLine();
+            }
+            buf_reader.close();
         }
 
 

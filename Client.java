@@ -3,10 +3,7 @@ import java.io.*;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class Client {
     final Socket sock;
@@ -35,6 +32,15 @@ public class Client {
     }
 
     void startClient(int port) throws IOException, ParseException {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(x);
+        cal.add(Calendar.MONTH,1);
+        int month = cal.get(Calendar.MONTH);
+        int day = cal.get(Calendar.DAY_OF_MONTH);
+        int year = cal.get(Calendar.YEAR);
+        String newdate = day + "-" + month + "-" + year;
+
+
         List<Integer> reservas = new ArrayList<>();
         boolean exit = false;
         int option;
@@ -144,17 +150,17 @@ public class Client {
 
 
     String insertRoute(){
-        System.out.println("Insira o trajeto que deseja realizar.\n~Exemplo: Se deseja partir em Portugal, passar em Inglaterra e chegar a Franca deve inserir:\n'Portugal-Inglaterra-Franca'.~");
+        System.out.println("Insira o trajeto que deseja realizar.\nExemplo: Se deseja partir em Portugal, passar em Inglaterra e chegar a Franca deve inserir:\n'Portugal-Inglaterra-Franca'.");
         return sc.nextLine();
     }
     Date insertStart() throws ParseException {
-        System.out.println("Insira a data inicial.(Exemplo: 03-05-2009)->(dia-mes-ano)");
+        System.out.println("Insira a data inicial.(Exemplo: 21-05-2009)");
         DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
         return dateFormat.parse(sc.nextLine());
     }
 
     Date insertEnd() throws ParseException {
-        System.out.println("Insira a data final.(Exemplo: 03-05-2009)->(dia-mes-ano)");
+        System.out.println("Insira a data final.(Exemplo: 21-05-2009)");
         DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
         return dateFormat.parse(sc.nextLine());
     }
