@@ -119,29 +119,23 @@ class RequestAddFlight implements Request {
 class RequestBooking implements Request {
     static final int REQUEST_NUMBER = 4;
     final String route;
-    final Date start;
-    final Date end;
+    final String start;
+    final String end;
 
 
-    public RequestBooking(String route, Date start, Date end) {
+    public RequestBooking(String route, String start, String end) {
         this.route = route;
         this.start = start;
         this.end = end;
     }
 
     public String serialize(){
-        DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
-        String started = dateFormat.format(start);
-        String ended = dateFormat.format(end);
         return String.format("%d;%s;%s;%s", REQUEST_NUMBER,route,start,end);
     }
 
-    public static RequestBooking deserialize(String in_data) throws ParseException {
+    public static RequestBooking deserialize(String in_data) {
         String[] split_data = in_data.split(";");
-        SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy");
-        Date start = formatter.parse(split_data[1]);
-        Date end = formatter.parse(split_data[2]);
-        return new RequestBooking(split_data[0],start,end);
+        return new RequestBooking(split_data[0],split_data[1],split_data[2]);
     }
 }
 

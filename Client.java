@@ -32,15 +32,6 @@ public class Client {
     }
 
     void startClient(int port) throws IOException, ParseException {
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(x);
-        cal.add(Calendar.MONTH,1);
-        int month = cal.get(Calendar.MONTH);
-        int day = cal.get(Calendar.DAY_OF_MONTH);
-        int year = cal.get(Calendar.YEAR);
-        String newdate = day + "-" + month + "-" + year;
-
-
         List<Integer> reservas = new ArrayList<>();
         boolean exit = false;
         int option;
@@ -73,31 +64,31 @@ public class Client {
                 System.exit(1);
             }
         }
-        while(!exit){
+        while (!exit) {
             option = showMainMenu();
-            if(option == 1){
+            if (option == 1) {
                 sendBooking();
                 data = in.readLine();
                 responseBooking = ResponseBooking.deserialize(data);
                 reservedCode = responseBooking.codeReserve;
-                if(reservedCode == -1){
+                if (reservedCode == -1) {
                     System.out.println(responseBooking.message);
-                }else{
+                } else {
                     reservas.add(reservedCode);
                     System.out.println(responseBooking.message);
                     System.out.println("Codigo da sua reserva: " + responseBooking.codeReserve);
                 }
                 //reserva
-            }else if(option == 2){
+            } else if (option == 2) {
                 //lista de voos
 
-            }else if(option == 3){
+            } else if (option == 3) {
                 sendBookingCancel();
                 //cancelar uma reserva
-            }else if(option == 0){
+            } else if (option == 0) {
                 exit = true;
                 //sair
-            }else{
+            } else {
                 System.out.println("Opcao Inválida");
                 stopClient();
                 System.exit(1);
@@ -132,41 +123,37 @@ public class Client {
     }
 
     int showMainMenu() {
-            System.out.println("Bem vindo à nossa Companhia! Pressione:\n(1) Para efetuar a reserva de uma viagem.\n(2) Obter a lista de todos os voos disponíveis.\n(3) Cancelar uma reserva.\n(0) Sair.");
-            return Integer.parseInt(sc.nextLine());
+        System.out.println("Bem vindo à nossa Companhia! Pressione:\n(1) Para efetuar a reserva de uma viagem.\n(2) Obter a lista de todos os voos disponíveis.\n(3) Cancelar uma reserva.\n(0) Sair.");
+        return Integer.parseInt(sc.nextLine());
     }
 
-    void sendBooking() throws ParseException {
+    void sendBooking(){
         String route = insertRoute();
-        Date start = insertStart();
-        Date end = insertEnd();
-        Request req = new RequestBooking(route,start,end);
+        String start = insertStart();
+        String end = insertEnd();
+        Request req = new RequestBooking(route, start, end);
         sendRequest(req);
     }
 
-    void sendBookingCancel(){
+    void sendBookingCancel() {
 
     }
 
 
-    String insertRoute(){
+    String insertRoute() {
         System.out.println("Insira o trajeto que deseja realizar.\nExemplo: Se deseja partir em Portugal, passar em Inglaterra e chegar a Franca deve inserir:\n'Portugal-Inglaterra-Franca'.");
         return sc.nextLine();
     }
-    Date insertStart() throws ParseException {
-        System.out.println("Insira a data inicial.(Exemplo: 21-05-2009)");
-        DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
-        return dateFormat.parse(sc.nextLine());
+
+    String insertStart() {
+        System.out.println("Insira a data inicial.(Exemplo: 21/05/2009)");
+        return sc.nextLine();
     }
 
-    Date insertEnd() throws ParseException {
-        System.out.println("Insira a data final.(Exemplo: 21-05-2009)");
-        DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
-        return dateFormat.parse(sc.nextLine());
+    String insertEnd() {
+        System.out.println("Insira a data final.(Exemplo: 21/05/2009)");
+        return sc.nextLine();
     }
-
-
-
 
 
 }

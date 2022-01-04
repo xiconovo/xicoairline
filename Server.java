@@ -10,7 +10,7 @@ class Server {
     boolean running = true;
     UserManager user_manager = new UserManager();
     BookingManager booking_manager = new BookingManager();
-    Map<Integer,Reserva> reservedBookings = new HashMap<>();
+    Map<Integer, Reserva> reservedBookings = new HashMap<>();
     int reservedCounter = 0;
 
     public static void main(String[] args) throws ParseException {
@@ -40,7 +40,6 @@ class Server {
         System.exit(1);
 
          */
-
 
 
         try {
@@ -106,7 +105,7 @@ class Server {
             }
         }
 
-        void executeRequest(String request_data) throws ParseException {
+        void executeRequest(String request_data) throws ParseException, IOException {
             String[] split_data = request_data.split(";", 2);
             int request_number = Integer.parseInt(split_data[0]);
 
@@ -142,15 +141,17 @@ class Server {
                 case RequestBooking.REQUEST_NUMBER: {
                     RequestBooking req = RequestBooking.deserialize(split_data[1]);
                     Date date = booking_manager.reservedOnDate(req.route, req.start, req.end);
+                    System.out.println("Reserved Date: " + date);
                     DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
                     String dateString = dateFormat.format(date);
+                    System.out.println("Data parsada: " + dateString);
                     Response response;
-                    if (dateString.equalsIgnoreCase("00/00/0000")) {
+                    if (dateString.equalsIgnoreCase("30/11/0002")) {
                         response = new ResponseBooking(false, "Unsuccessful reserved", -1);
                     } else {
                         reservedCounter++; // WARNING: LOCK
-                        Reserva newBooking = new Reserva(reservedCounter,date,user,booking_manager.trip);
-                        reservedBookings.put(reservedCounter,newBooking);
+                        Reserva newBooking = new Reserva(reservedCounter, date, user, booking_manager.trip);
+                        reservedBookings.put(reservedCounter, newBooking);
                         response = new ResponseBooking(true, "Booked successful on day " + dateString, reservedCounter);
 
                     }
@@ -243,44 +244,44 @@ class Server {
     }
 
 
-
     private class BookingManager {
         public List<Flight> flights = new ArrayList<>(); // lista de voos geral
-        public Map<Date,List<Flight>> flightsPerDay = new HashMap<>(); // Lista de voos para cada dia geral
+        public Map<Date, List<Flight>> flightsPerDay = new HashMap<>(); // Lista de voos para cada dia geral
         public List<Flight> trip = new ArrayList<>(); // lista com os voos de uma dada reserva
 
 
-
-        public void anotherDay(Date data){
-            if(!flightsPerDay.containsKey(data)){
-                flightsPerDay.put(data,flights);
+        public void anotherDay(Date data) {
+            if (!flightsPerDay.containsKey(data)) {
+                flightsPerDay.put(data, flights);
             }
         }
 
-        public Date reservedOnDate(String route, Date start, Date end) throws ParseException {
-            System.out.println("entrou aqui sequer?");
+
+        public Date reservedOnDate(String route, String started, String ended) throws ParseException, IOException {
             SimpleDateFormat DateFor = new SimpleDateFormat("dd/MM/yyyy");
+            Date start = DateFor.parse(started);
+            Date end = DateFor.parse(ended);
             Date bookedOn = DateFor.parse("00/00/0000");
             Calendar c = Calendar.getInstance();
             String[] countrys = route.split("-");
             int size = countrys.length - 1;
             Flight flightToAdd;
-            while(start.before(end) || start.equals(end)){
+            while (start.before(end) || start.equals(end)) {
                 List<Flight> toReserve = new ArrayList<>();
                 int thereIsFlight = 0;
-                for(int i = 0; i<size; i++){
-                    flightToAdd = isThereFlight(countrys[i],countrys[i+1], start);
-                    if(flightToAdd == null){
+                for (int i = 0; i < size; i++) {
+                    flightToAdd = isThereFlight(countrys[i], countrys[i + 1], start);
+                    if (flightToAdd == null) {
                         thereIsFlight = -1;
                         break;
                     }
                     toReserve.add(flightToAdd);
                 }
-                if(thereIsFlight == 0){
-                    for(Flight f : toReserve){ // WARNING: LOCKS
-                        trip.add(f);
-                        f.setCapacity(f.getCapacity()-1);
+                if (thereIsFlight == 0) {
+                    for (Flight f : toReserve) { // WARNING: LOCKS
+                        f.setCapacity(f.getCapacity() - 1);
                     }
+                    System.out.println("fodase");
                     return start;
                 }
                 //em baixo é somar 1 ao dia
@@ -288,20 +289,20 @@ class Server {
                 c.add(Calendar.DATE, 1);
                 start = c.getTime();
             }
+            System.out.println("chegou aqui");
             return bookedOn;
 
 
         }
 
-        public Flight isThereFlight(String source, String destination, Date day){
+        public Flight isThereFlight(String source, String destination, Date day) throws IOException {
             Flight ret = null;
-
-            List<Flight> day_flights =  flightsPerDay.get(day);
+            List<Flight> day_flights = flightsPerDay.get(day);
             if (day_flights != null) {
-                for(Flight f : day_flights){
-                    if(f.getSource().equalsIgnoreCase(source) && f.getDestination().equalsIgnoreCase(destination)){
+                for (Flight f : day_flights) {
+                    if (f.getSource().equalsIgnoreCase(source) && f.getDestination().equalsIgnoreCase(destination)) {
                         int capacity = f.getCapacity(); // WARNING: LOCK
-                        if(capacity > 0){
+                        if (capacity > 0) {
                             System.out.println("found flight " + f);
                             return f;
                         } else {
@@ -312,14 +313,15 @@ class Server {
                 }
             }
 
-            for(Flight f : this.flights){
-                if(f.getSource().equalsIgnoreCase(source) && f.getDestination().equalsIgnoreCase(destination)){
+            for (Flight f : this.flights) {
+                if (f.getSource().equalsIgnoreCase(source) && f.getDestination().equalsIgnoreCase(destination)) {
                     if (day_flights != null) {
                         day_flights.add(f);
                     } else {
                         List<Flight> new_flight_list = new ArrayList<>();
                         new_flight_list.add(f);
                         flightsPerDay.put(day, new_flight_list);
+                        saveFlightsPerDay();
                     }
                     ret = f;
                 }
@@ -356,7 +358,7 @@ class Server {
             FileWriter file_writer = new FileWriter(BACKUP_FILE_FLIGHTS_PER_DAY);
             PrintWriter print_writer = new PrintWriter(file_writer);
 
-            for (Map.Entry<Date,List<Flight>> entry : flightsPerDay.entrySet()) {
+            for (Map.Entry<Date, List<Flight>> entry : flightsPerDay.entrySet()) {
                 String line = date_format.format(entry.getKey()) + ";";
                 for (Flight flight : entry.getValue()) {
                     line += String.format("%s,%s,%d;", flight.getSource(), flight.getDestination(), flight.getCapacity());
@@ -364,7 +366,7 @@ class Server {
                 line += "\n";
                 print_writer.write(line);
             }
-           print_writer.close();
+            print_writer.close();
         }
 
         public void restoreFlightsPerDay() throws IOException, ParseException {
@@ -389,16 +391,15 @@ class Server {
         }
 
 
-
     }
 
-    private class Reserva{
+    private class Reserva {
         private int codeReserve;
         private Date day;
         private User user;
         private List<Flight> trip;
 
-        public Reserva(int codeReserve, Date day,User user,List<Flight> trip){
+        public Reserva(int codeReserve, Date day, User user, List<Flight> trip) {
             this.codeReserve = codeReserve;
             this.day = day;
             this.user = user;
@@ -409,9 +410,6 @@ class Server {
             return codeReserve;
         }
     }
-
-
-
 
 
 }
