@@ -10,8 +10,6 @@ class Server {
     boolean running = true;
     UserManager user_manager = new UserManager();
     BookingManager booking_manager = new BookingManager();
-    Map<Integer, Reserva> reservedBookings = new HashMap<>();
-    int reservedCounter = 0;
 
     public static void main(String[] args) throws ParseException {
         System.out.println("Hello World! I'm Server");
@@ -108,18 +106,23 @@ class Server {
         void executeRequest(String request_data) throws ParseException, IOException {
             String[] split_data = request_data.split(";", 2);
             int request_number = Integer.parseInt(split_data[0]);
+            Response response;
 
             switch (request_number) {
                 case RequestLogin.REQUEST_NUMBER: {
                     RequestLogin req = RequestLogin.deserialize(split_data[1]);
-                    boolean ok = user_manager.verifyUser(req.username, req.password);
-                    Response response;
-                    if (ok) {
-                        is_logged_in = true;
-                        user = user_manager.getUserByName(req.username);
+                    if(req.username.equalsIgnoreCase("admin") && req.password.equalsIgnoreCase("admin123")){
                         response = new ResponseOk(true, "Login success");
-                    } else {
-                        response = new ResponseOk(false, "Login failed");
+                    }
+                    else {
+                        boolean ok = user_manager.verifyUser(req.username, req.password);
+                        if (ok) {
+                            is_logged_in = true;
+                            user = user_manager.getUserByName(req.username);
+                            response = new ResponseOk(true, "Login success");
+                        } else {
+                            response = new ResponseOk(false, "Login failed");
+                        }
                     }
                     sendResponse(response);
                 }
@@ -128,7 +131,6 @@ class Server {
                 case RequestRegister.REQUEST_NUMBER: {
                     RequestRegister req = RequestRegister.deserialize(split_data[1]);
                     boolean ok = user_manager.addUser(req.username, req.password);
-                    Response response;
                     if (ok) {
                         response = new ResponseOk(true, "Register success");
                     } else {
@@ -139,29 +141,70 @@ class Server {
                 break;
 
                 case RequestBooking.REQUEST_NUMBER: {
-                    RequestBooking req = RequestBooking.deserialize(split_data[1]);
-                    Date date = booking_manager.reservedOnDate(req.route, req.start, req.end);
-                    System.out.println("Reserved Date: " + date);
                     DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
-                    String dateString = dateFormat.format(date);
-                    System.out.println("Data parsada: " + dateString);
-                    Response response;
-                    if (dateString.equalsIgnoreCase("30/11/0002")) {
+                    RequestBooking req = RequestBooking.deserialize(split_data[1]);
+                    Reserva reserve = booking_manager.reservedOnDate(req.route, req.start, req.end, user);
+                    if (reserve == null) {
                         response = new ResponseBooking(false, "Unsuccessful reserved", -1);
                     } else {
-                        reservedCounter++; // WARNING: LOCK
-                        Reserva newBooking = new Reserva(reservedCounter, date, user, booking_manager.trip);
-                        reservedBookings.put(reservedCounter, newBooking);
-                        response = new ResponseBooking(true, "Booked successful on day " + dateString, reservedCounter);
-
+                        String dateString = dateFormat.format(reserve.day);
+                        System.out.println("Reserved Date: " + dateString);
+                        response = new ResponseBooking(true, "Booked successful on day " + dateString, reserve.codeReserve);
                     }
                     sendResponse(response);
                 }
                 break;
 
+                case RequestBookedList.REQUEST_NUMBER: {
+                    String listOfCodes = booking_manager.userReservedCodes(user);
+                    if(listOfCodes.equalsIgnoreCase(" ")){
+                        response = new ResponseBookedList(false,listOfCodes);
+                    }else{
+                        response = new ResponseBookedList(true,listOfCodes);
+                    }
+                    System.out.println("STRING:" + listOfCodes);
+                    sendResponse(response);
+
+
+                }
+                break;
+
                 case RequestBookingCancel.REQUEST_NUMBER: {
                     RequestBookingCancel req = RequestBookingCancel.deserialize(split_data[1]);
+                    boolean canceled = booking_manager.cancelReserve(req.codeReserve,user);
+                    if(canceled){
+                        response = new ResponseBookingCancel(true, "Booked successfuly canceled.");
+                    } else{
+                        response = new ResponseBookingCancel(false, "Booked unsuccessfuly canceled.");
+                    }
+                    sendResponse(response);
                 }
+                break;
+
+                case RequestAddFlight.REQUEST_NUMBER: {
+                    RequestAddFlight req = RequestAddFlight.deserialize(split_data[1]);
+                    boolean addFlight = booking_manager.addFlight(req.source,req.destination,req.capacity);
+                    if(addFlight){
+                        response = new ResponseAddFlight(true, "Flight added.");
+                    } else {
+                        response = new ResponseAddFlight(false, "Flight not available to add.");
+                    }
+                    sendResponse(response);
+                }
+                break;
+
+                case RequestDayClose.REQUEST_NUMBER: {
+                    RequestDayClose req = RequestDayClose.deserialize(split_data[1]);
+                    Date day = new SimpleDateFormat("dd/MM/yyyy").parse(req.day);
+                    boolean closeDay = booking_manager.closeDay(day);
+                    if(closeDay){
+                        response = new ResponseCloseDay(true, "Successful. Day closed.");
+                    } else{
+                        response = new ResponseCloseDay(false, "Unsuccessful. Day is already close.");
+                    }
+                    sendResponse(response);
+                }
+                break;
 
             }
         }
@@ -214,7 +257,6 @@ class Server {
         public void restoreUsers() throws IOException {
             FileReader file_reader = new FileReader(BACKUP_FILE_USERS);
             BufferedReader buf_reader = new BufferedReader(file_reader);
-
             String line = buf_reader.readLine();
             while (line != null) {
                 String[] split = line.split(",");
@@ -247,52 +289,97 @@ class Server {
     private class BookingManager {
         public List<Flight> flights = new ArrayList<>(); // lista de voos geral
         public Map<Date, List<Flight>> flightsPerDay = new HashMap<>(); // Lista de voos para cada dia geral
-        public List<Flight> trip = new ArrayList<>(); // lista com os voos de uma dada reserva
+        Map<Integer, Reserva> reservedBookings = new HashMap<>();
+        List<Date> daysClosed = new ArrayList<>();
 
 
-        public void anotherDay(Date data) {
-            if (!flightsPerDay.containsKey(data)) {
-                flightsPerDay.put(data, flights);
+
+        public boolean closeDay(Date day) throws IOException, ParseException {
+            for(Date d : daysClosed){
+                if(d.equals(day)){
+                    return false;
+                }
             }
+            cancelDayReserves(day);
+            cancelAllReservesOnDay(day);
+            daysClosed.add(day);
+            return true;
+        }
+
+        public void cancelAllReservesOnDay(Date day){
+            Iterator<Map.Entry<Integer,Reserva>> itr = reservedBookings.entrySet().iterator();
+            while(itr.hasNext()){
+                Map.Entry<Integer,Reserva> entry = itr.next();
+                if(entry.getValue().day.equals(day)){
+                    itr.remove();
+                }
+            }
+        }
+        public void cancelDayReserves(Date day) throws IOException, ParseException {
+            flightsPerDay.remove(day);
+            saveFlightsPerDay();
         }
 
 
-        public Date reservedOnDate(String route, String started, String ended) throws ParseException, IOException {
+        public boolean addFlight(String source, String destination, int capacity) throws IOException {
+            Flight f = new Flight(source,destination,capacity);
+            String origin;
+            String destin;
+            for(Flight flight : flights){
+                origin = flight.getSource();
+                destin = flight.getDestination();
+                if(f.getSource().equalsIgnoreCase(origin) && f.getDestination().equalsIgnoreCase(destin)){
+                    return false;
+                }
+            }
+            this.flights.add(f);
+            saveFlights();
+            return true;
+        }
+
+
+        public Reserva reservedOnDate(String route, String started, String ended, User user) throws ParseException, IOException {
             SimpleDateFormat DateFor = new SimpleDateFormat("dd/MM/yyyy");
             Date start = DateFor.parse(started);
             Date end = DateFor.parse(ended);
-            Date bookedOn = DateFor.parse("00/00/0000");
             Calendar c = Calendar.getInstance();
             String[] countrys = route.split("-");
             int size = countrys.length - 1;
             Flight flightToAdd;
             while (start.before(end) || start.equals(end)) {
-                List<Flight> toReserve = new ArrayList<>();
-                int thereIsFlight = 0;
-                for (int i = 0; i < size; i++) {
-                    flightToAdd = isThereFlight(countrys[i], countrys[i + 1], start);
-                    if (flightToAdd == null) {
-                        thereIsFlight = -1;
+                boolean dayClosed = false;
+                for(Date d : daysClosed){
+                    if(d.equals(start)){
+                        dayClosed = true;
                         break;
                     }
-                    toReserve.add(flightToAdd);
                 }
-                if (thereIsFlight == 0) {
-                    for (Flight f : toReserve) { // WARNING: LOCKS
-                        f.setCapacity(f.getCapacity() - 1);
+                if(!dayClosed){
+                    List<Flight> toReserve = new ArrayList<>();
+                    int thereIsFlight = 0;
+                    for (int i = 0; i < size; i++) {
+                        flightToAdd = isThereFlight(countrys[i], countrys[i + 1], start);
+                        if (flightToAdd == null) {
+                            thereIsFlight = -1;
+                            break;
+                        }
+                        toReserve.add(flightToAdd);
                     }
-                    System.out.println("fodase");
-                    return start;
+                    if (thereIsFlight == 0) {
+                        for (Flight f : toReserve) { // WARNING: LOCKS
+                            f.setCapacity(f.getCapacity() - 1);
+                        }
+                        Reserva reserva = new Reserva(this.reservedBookings.size() + 1, start, user, toReserve);
+                        reservedBookings.put(reserva.codeReserve, reserva);
+                        return reserva;
+                    }
                 }
                 //em baixo é somar 1 ao dia
                 c.setTime(start);
                 c.add(Calendar.DATE, 1);
                 start = c.getTime();
             }
-            System.out.println("chegou aqui");
-            return bookedOn;
-
-
+            return null;
         }
 
         public Flight isThereFlight(String source, String destination, Date day) throws IOException {
@@ -350,6 +437,7 @@ class Server {
                 flights.add(new Flight(split[0], split[1], Integer.parseInt(split[2])));
                 line = buf_reader.readLine();
             }
+            System.out.println("Restored " + flights.size() + " fligths");
             buf_reader.close();
         }
 
@@ -387,27 +475,59 @@ class Server {
                 flightsPerDay.put(date, day_flights);
                 line = buf_reader.readLine();
             }
+            System.out.println("Restored " + flightsPerDay.size() + " fligths per day");
             buf_reader.close();
         }
+
+        public boolean cancelReserve(int code, User user) {
+            if(reservedBookings.get(code)!= null){
+                if(reservedBookings.get(code).user.equals(user)){
+                    reservedBookings.remove(code);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        String userReservedCodes(User user){
+            String ret = " ";
+            List<Integer> codes = new ArrayList<>();
+            for(Reserva r : reservedBookings.values()){
+                if(r.user.equals(user)){
+                    codes.add(r.codeReserve);
+                }
+            }
+            int size = codes.size();
+
+            for(int i = 0; i < size; i++){
+                if(i == size-1){
+                    ret += codes.get(i) + " ";
+                } else{
+                    ret += codes.get(i) + "-";
+                }
+
+            }
+            return ret;
+        }
+
+
+
+
 
 
     }
 
     private class Reserva {
-        private int codeReserve;
-        private Date day;
-        private User user;
-        private List<Flight> trip;
+        public int codeReserve;
+        public Date day;
+        public User user;
+        public List<Flight> trip;
 
         public Reserva(int codeReserve, Date day, User user, List<Flight> trip) {
             this.codeReserve = codeReserve;
             this.day = day;
             this.user = user;
             this.trip = trip;
-        }
-
-        public int getCodeReserve() {
-            return codeReserve;
         }
     }
 

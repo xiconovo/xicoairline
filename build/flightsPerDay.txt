@@ -1,1 +1,9 @@
-21/06/2009;Portugal,Franca,1;
+21/09/2001;Portugal,Franca,-1;
+23/05/2050;Portugal,Franca,-1;
+26/09/2005;Portugal,Franca,0;
+22/05/2009;Portugal,Franca,0;
+29/08/2010;Portugal,Franca,0;
+23/05/2018;Portugal,Franca,-1;
+15/04/2000;Portugal,Franca,0;
+19/09/2002;Portugal,Franca,-1;
+30/08/2010;Portugal,Franca,0;

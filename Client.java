@@ -1,8 +1,6 @@
 import java.net.*;
 import java.io.*;
-import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class Client {
@@ -37,18 +35,20 @@ public class Client {
         int option;
         Request req;
         String data;
+        String username = "";
+        String password = "";
         ResponseOk response;
-        ResponseBooking responseBooking;
         while (!is_logged_in) {
             option = showMenu1();
-            String username = insertUsername();
-            String password = insertPassword();
+            username = insertUsername();
+            password = insertPassword();
             if (option == 1) {
                 req = new RequestLogin(username, password);
                 sendRequest(req);
                 data = in.readLine();
                 response = ResponseOk.deserialize(data);
                 is_logged_in = response.status;
+                System.out.println(response.message + "\n");
             } else if (option == 2) {
                 req = new RequestRegister(username, password);
                 sendRequest(req);
@@ -65,33 +65,76 @@ public class Client {
             }
         }
         while (!exit) {
-            option = showMainMenu();
-            if (option == 1) {
-                sendBooking();
-                data = in.readLine();
-                responseBooking = ResponseBooking.deserialize(data);
-                reservedCode = responseBooking.codeReserve;
-                if (reservedCode == -1) {
-                    System.out.println(responseBooking.message);
-                } else {
-                    reservas.add(reservedCode);
-                    System.out.println(responseBooking.message);
-                    System.out.println("Codigo da sua reserva: " + responseBooking.codeReserve);
-                }
-                //reserva
-            } else if (option == 2) {
-                //lista de voos
+            if(username.equalsIgnoreCase("admin") && password.equalsIgnoreCase("admin123")){
+                option = showAdminMenu();
+                if(option == 1){
+                    ResponseAddFlight responseAddFlight;
+                    // inserir novos voos
+                    sendFlights();
+                    data = in.readLine();
+                    responseAddFlight = ResponseAddFlight.deserialize(data);
+                    System.out.println(responseAddFlight.message + "\n");
 
-            } else if (option == 3) {
-                sendBookingCancel();
-                //cancelar uma reserva
-            } else if (option == 0) {
-                exit = true;
-                //sair
-            } else {
-                System.out.println("Opcao Inválida");
-                stopClient();
-                System.exit(1);
+                } else if (option == 2){
+                    ResponseCloseDay responseCloseDay;
+                    // encerrar um dia
+                    sendDayClose();
+                    data = in.readLine();
+                    responseCloseDay = ResponseCloseDay.deserialize(data);
+                    System.out.println(responseCloseDay.message + "\n");
+
+
+                } else if (option == 0){
+                    exit = true;
+                } else {
+                    System.out.println("Opcao Inválida");
+                    stopClient();
+                    System.exit(1);
+                }
+            }
+            else {
+                option = showMainMenu();
+                if (option == 1) {
+                    ResponseBooking responseBooking;
+                    sendBooking();
+                    data = in.readLine();
+                    responseBooking = ResponseBooking.deserialize(data);
+                    reservedCode = responseBooking.codeReserve;
+                    if (reservedCode == -1) {
+                        System.out.println(responseBooking.message+ "\n");
+                    } else {
+                        reservas.add(reservedCode);
+                        System.out.println(responseBooking.message);
+                        System.out.println("Codigo da sua reserva: " + responseBooking.codeReserve + "\n");
+                    }
+                    //reserva
+                } else if (option == 2) {
+                    //lista de voos
+
+                } else if (option == 3) { // 1º Aparecer a lista com os codigos de reserva do utilizador e de seguida pedir para ele inserir qual quer cancelar.
+                    sendListRequest();
+                    data = in.readLine();
+                    ResponseBookedList bookedList = ResponseBookedList.deserialize(data);
+                    if (!bookedList.status) {
+                        System.out.println("Ainda não tem nenhuma reserva feita.");
+                        System.exit(0); // apagar esta linha e fazer com que apareca
+                        // voltar ao inicio
+                    } else {
+                        showBookedList(bookedList.listOfCodes);
+                        sendBookingCancel();
+                        data = in.readLine();
+                        ResponseBookingCancel responseBookingCancel = ResponseBookingCancel.deserialize(data);
+                        System.out.println(responseBookingCancel.message + "\n");
+                    }
+                    //cancelar uma reserva
+                } else if (option == 0) {
+                    exit = true;
+                    //sair
+                } else {
+                    System.out.println("Opcao Inválida");
+                    stopClient();
+                    System.exit(1);
+                }
             }
         }
         stopClient();
@@ -102,10 +145,62 @@ public class Client {
         this.out.println(req.serialize());
     }
 
+    void sendBooking(){
+        String route = insertRoute();
+        String start = insertStart();
+        String end = insertEnd();
+        Request req = new RequestBooking(route, start, end);
+        sendRequest(req);
+    }
+
+    void sendBookingCancel() {
+        int code = Integer.parseInt(insertReserveCode());
+        Request req = new RequestBookingCancel(code);
+        sendRequest(req);
+    }
+
+    void sendListRequest(){
+        Request req = new RequestBookedList();
+        sendRequest(req);
+    }
+
+    void sendFlights(){
+        String source = insertSource();
+        String destination = insertDestination();
+        int capacity = Integer.parseInt(insertCapacity());
+        Request req = new RequestAddFlight(source, destination, capacity);
+        sendRequest(req);
+
+    }
+
+    void sendDayClose(){
+        String day = insertDayClose();
+        Request req = new RequestDayClose(day);
+        sendRequest(req);
+    }
+
     int showMenu1() {
         System.out.println("Pressione:\n(1) Para se autenticar.\n(2) Para se registar\n(0) Para sair.");
         return Integer.parseInt(sc.nextLine());
     }
+
+    int showMainMenu() {
+        System.out.println("Bem vindo à nossa Companhia! Pressione:\n(1) Para efetuar a reserva de uma viagem.\n(2) Obter a lista de todos os voos disponíveis.\n(3) Cancelar uma reserva.\n(0) Sair.");
+        return Integer.parseInt(sc.nextLine());
+    }
+
+    int showAdminMenu() {
+        System.out.println("Bem vindo Administrador! Pressione:\n(1) Para inserir novos voos.\n(2) Para encerrar um dado dia.\n(0) Sair.");
+        return Integer.parseInt(sc.nextLine());
+    }
+
+    void showBookedList(String bookedList){
+        System.out.println("Selecione um dos codigos que pretende cancelar.");
+        System.out.println("[" + bookedList + "]");
+    }
+
+
+
 
     String insertUsername() {
         System.out.println("Insira o seu ID.");
@@ -122,21 +217,10 @@ public class Client {
         sock.close();
     }
 
-    int showMainMenu() {
-        System.out.println("Bem vindo à nossa Companhia! Pressione:\n(1) Para efetuar a reserva de uma viagem.\n(2) Obter a lista de todos os voos disponíveis.\n(3) Cancelar uma reserva.\n(0) Sair.");
-        return Integer.parseInt(sc.nextLine());
-    }
 
-    void sendBooking(){
-        String route = insertRoute();
-        String start = insertStart();
-        String end = insertEnd();
-        Request req = new RequestBooking(route, start, end);
-        sendRequest(req);
-    }
-
-    void sendBookingCancel() {
-
+    String insertReserveCode(){
+        System.out.println("Insira o codigo da reserva que pretende cancelar.");
+        return sc.nextLine();
     }
 
 
@@ -152,6 +236,26 @@ public class Client {
 
     String insertEnd() {
         System.out.println("Insira a data final.(Exemplo: 21/05/2009)");
+        return sc.nextLine();
+    }
+
+    String insertDayClose() {
+        System.out.println("Insira o dia que pretende encerrar.(Exemplo: 21/05/2009)");
+        return sc.nextLine();
+    }
+
+    String insertSource(){
+        System.out.println("Insira a origem do voo.(Exemplo: Portugal)");
+        return sc.nextLine();
+    }
+
+    String insertDestination(){
+        System.out.println("Insira o destino do voo.(Exemplo: Portugal)");
+        return sc.nextLine();
+    }
+
+    String insertCapacity(){
+        System.out.println("Insira a capacidade do aviao.");
         return sc.nextLine();
     }
 

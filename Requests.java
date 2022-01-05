@@ -1,8 +1,3 @@
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
 interface Request {
     String serialize();
 
@@ -99,22 +94,6 @@ class RequestRegister implements Request {
     }
 }
 
-class RequestAddFlight implements Request {
-    static final int REQUEST_NUMBER = 3;
-    final String origin;
-    final String destination;
-    final int capacity;
-
-    public RequestAddFlight(String origin, String destination, int capacicy) {
-        this.origin = origin;
-        this.destination = destination;
-        this.capacity = capacicy;
-    }
-
-    public String serialize() {
-        return String.format("%d;%s;%s;%d", REQUEST_NUMBER, origin, destination, capacity);
-    }
-}
 
 class RequestBooking implements Request {
     static final int REQUEST_NUMBER = 4;
@@ -149,13 +128,146 @@ class RequestBookingCancel implements Request{
     }
 
     public String serialize(){
-        return String.format("%d",codeReserve);
+        return String.format("%d;%d",REQUEST_NUMBER, codeReserve);
     }
 
-    public static RequestBookingCancel deserialize(String in_data) throws ParseException {
-       return null;
+    public static RequestBookingCancel deserialize(String in_data) {
+        String[] split_data = in_data.split(";");
+        return new RequestBookingCancel(Integer.parseInt(split_data[0]));
+    }
+}
+
+class ResponseBookingCancel implements Response {
+    final boolean status;
+    final String message;
+
+    public ResponseBookingCancel(boolean ok, String message) {
+        this.status = ok;
+        this.message = message;
+    }
+
+    public String serialize() {
+        return String.format("%b;%s", status, message);
+    }
+
+    public static ResponseBookingCancel deserialize(String in_data) {
+        String[] split_data = in_data.split(";");
+        return new ResponseBookingCancel(Boolean.parseBoolean(split_data[0]), split_data[1]);
+    }
+}
+
+
+class RequestBookedList implements Request{
+    static final int REQUEST_NUMBER = 6;
+
+    public String serialize(){
+        return String.format("%d",REQUEST_NUMBER);
+    }
+}
+
+class ResponseBookedList implements Response{
+    final boolean status;
+    final String listOfCodes;
+
+    public ResponseBookedList(boolean status,String listOfCodes){
+        this.status = status;
+        this.listOfCodes = listOfCodes;
+    }
+
+    public String serialize() {
+        return String.format("%b;%s", status, listOfCodes);
+    }
+
+
+    public static ResponseBookedList deserialize(String in_data) {
+        String[] split_data = in_data.split(";");
+        return new ResponseBookedList(Boolean.parseBoolean(split_data[0]), split_data[1]);
+    }
+}
+
+class RequestAddFlight implements Request{
+    static final int REQUEST_NUMBER = 7;
+    final String source;
+    final String destination;
+    final int capacity;
+
+    public RequestAddFlight(String source, String destination, int capacity){
+        this.source = source;
+        this.destination = destination;
+        this.capacity = capacity;
+    }
+
+    public String serialize(){
+        return String.format("%d;%s;%s;%d", REQUEST_NUMBER,source,destination,capacity);
+    }
+
+    public static RequestAddFlight deserialize(String in_data) {
+        String[] split_data = in_data.split(";");
+        return new RequestAddFlight(split_data[0],split_data[1],Integer.parseInt(split_data[2]));
     }
 
 
 }
 
+class ResponseAddFlight implements Response{
+    final boolean status;
+    final String message;
+
+    public ResponseAddFlight(boolean status, String message){
+        this.status = status;
+        this.message = message;
+    }
+
+    public String serialize() {
+        return String.format("%b;%s", status, message);
+    }
+
+
+    public static ResponseAddFlight deserialize(String in_data) {
+        String[] split_data = in_data.split(";");
+        return new ResponseAddFlight(Boolean.parseBoolean(split_data[0]), split_data[1]);
+    }
+
+
+}
+
+class RequestDayClose implements Request{
+    static final int REQUEST_NUMBER = 3;
+    final String day;
+
+    public RequestDayClose(String day){
+        this.day = day;
+    }
+
+    public String serialize(){
+        return String.format("%d;%s", REQUEST_NUMBER,day);
+    }
+
+    public static RequestDayClose deserialize(String in_data) {
+        String[] split_data = in_data.split(";");
+        return new RequestDayClose(split_data[0]);
+    }
+}
+
+
+class ResponseCloseDay implements Response{
+    final boolean status;
+    final String message;
+
+    public ResponseCloseDay(boolean status, String message){
+        this.status = status;
+        this.message = message;
+    }
+
+    public String serialize() {
+        return String.format("%b;%s", status, message);
+    }
+
+
+    public static ResponseCloseDay deserialize(String in_data) {
+        String[] split_data = in_data.split(";");
+        return new ResponseCloseDay(Boolean.parseBoolean(split_data[0]), split_data[1]);
+    }
+
+
+}
