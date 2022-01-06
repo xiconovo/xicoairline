@@ -3,10 +3,11 @@ import java.io.*;
 import java.text.ParseException;
 import java.util.*;
 
+
 public class Client {
     final Socket sock;
-    final PrintWriter out;
-    final BufferedReader in;
+    final DataOutputStream out;
+    final DataInputStream in;
     boolean is_logged_in = false;
     boolean is_registed = false;
     int reservedCode;
@@ -18,14 +19,14 @@ public class Client {
             Client client = new Client("localhost", port);
             client.startClient(port);
         } catch (IOException | ParseException e) {
-            System.out.println("Exception caught when trying to connect on port " + port + " or listening for a connection");
+            System.out.println("Já não existe conexão. Fechar cliente.");
         }
     }
 
     public Client(String host, int port) throws IOException {
         this.sock = new Socket(host, port);
-        this.out = new PrintWriter(this.sock.getOutputStream(), true);
-        this.in = new BufferedReader(new InputStreamReader(this.sock.getInputStream()));
+        this.out = new DataOutputStream(this.sock.getOutputStream());
+        this.in = new DataInputStream(this.sock.getInputStream());
     }
 
     void startClient(int port) throws IOException, ParseException {
@@ -39,19 +40,21 @@ public class Client {
         ResponseOk response;
         while (!is_logged_in) {
             option = showMenu1();
-            username = insertUsername();
-            password = insertPassword();
             if (option == 1) {
+                username = insertUsername();
+                password = insertPassword();
                 req = new RequestLogin(username, password);
                 sendRequest(req);
-                data = in.readLine();
+                data = in.readUTF();
                 response = ResponseOk.deserialize(data);
                 is_logged_in = response.status;
                 System.out.println(response.message + "\n");
             } else if (option == 2) {
+                username = insertUsername();
+                password = insertPassword();
                 req = new RequestRegister(username, password);
                 sendRequest(req);
-                data = in.readLine();
+                data = in.readUTF();
                 response = ResponseOk.deserialize(data);
                 System.out.println(response.message + "\n");
                 is_registed = response.status;
@@ -71,7 +74,7 @@ public class Client {
                     ResponseAddFlight responseAddFlight;
                     // inserir novos voos
                     sendFlights();
-                    data = in.readLine();
+                    data = in.readUTF();
                     responseAddFlight = ResponseAddFlight.deserialize(data);
                     System.out.println(responseAddFlight.message + "\n");
 
@@ -79,7 +82,7 @@ public class Client {
                     ResponseCloseDay responseCloseDay;
                     // encerrar um dia
                     sendDayClose();
-                    data = in.readLine();
+                    data = in.readUTF();
                     responseCloseDay = ResponseCloseDay.deserialize(data);
                     System.out.println(responseCloseDay.message + "\n");
 
@@ -97,7 +100,7 @@ public class Client {
                 if (option == 1) {
                     ResponseBooking responseBooking;
                     sendBooking();
-                    data = in.readLine();
+                    data = in.readUTF();
                     responseBooking = ResponseBooking.deserialize(data);
                     reservedCode = responseBooking.codeReserve;
                     if (reservedCode == -1) {
@@ -110,7 +113,7 @@ public class Client {
                 } else if (option == 2) {
                     ResponseFlightList responseFlightList;
                     sendFlightListRequest();
-                    data = in.readLine();
+                    data = in.readUTF();
                     responseFlightList = ResponseFlightList.deserialize(data);
                     if(!responseFlightList.status){
                         System.out.println(responseFlightList.allFlights);
@@ -120,14 +123,14 @@ public class Client {
 
                 } else if (option == 3) {
                     sendCodeListRequest();
-                    data = in.readLine();
+                    data = in.readUTF();
                     ResponseBookedList bookedList = ResponseBookedList.deserialize(data);
                     if (!bookedList.status) {
                         System.out.println("Ainda não tem nenhuma reserva feita.\n");
                     } else {
                         showBookedList(bookedList.listOfCodes);
                         sendBookingCancel();
-                        data = in.readLine();
+                        data = in.readUTF();
                         ResponseBookingCancel responseBookingCancel = ResponseBookingCancel.deserialize(data);
                         System.out.println(responseBookingCancel.message + "\n");
                     }
@@ -143,11 +146,11 @@ public class Client {
         stopClient();
     }
 
-    void sendRequest(Request req) {
-        this.out.println(req.serialize());
+    void sendRequest(Request req) throws IOException {
+        this.out.writeUTF(req.serialize());
     }
 
-    void sendBooking(){
+    void sendBooking() throws IOException{
         String route = insertRoute();
         String start = insertStart();
         String end = insertEnd();
@@ -155,18 +158,18 @@ public class Client {
         sendRequest(req);
     }
 
-    void sendBookingCancel() {
+    void sendBookingCancel() throws IOException {
         int code = Integer.parseInt(insertReserveCode());
         Request req = new RequestBookingCancel(code);
         sendRequest(req);
     }
 
-    void sendCodeListRequest(){
+    void sendCodeListRequest() throws IOException{
         Request req = new RequestBookedList();
         sendRequest(req);
     }
 
-    void sendFlights(){
+    void sendFlights() throws IOException{
         String source = insertSource();
         String destination = insertDestination();
         int capacity = Integer.parseInt(insertCapacity());
@@ -175,12 +178,12 @@ public class Client {
 
     }
 
-    void sendFlightListRequest(){
+    void sendFlightListRequest() throws IOException{
         Request req = new RequestFlightList();
         sendRequest(req);
     }
 
-    void sendDayClose(){
+    void sendDayClose() throws IOException{
         String day = insertDayClose();
         Request req = new RequestDayClose(day);
         sendRequest(req);
@@ -210,7 +213,6 @@ public class Client {
         System.out.println("A lista de voos disponiveis é dada por:\n[" + allFlights + "]\n");
 
     }
-
 
     String insertUsername() {
         System.out.println("Insira o seu ID.");

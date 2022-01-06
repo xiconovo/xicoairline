@@ -300,3 +300,4 @@ class ResponseFlightList implements  Response {
         return new ResponseFlightList(Boolean.parseBoolean(split_data[0]), split_data[1]);
     }
 }
+

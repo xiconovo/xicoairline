@@ -5,68 +5,103 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-class Server {
+class Server implements Serializable{
     static int PORT = 4545;
-    boolean running = true;
+    static boolean running = true;
     UserManager user_manager = new UserManager();
     BookingManager booking_manager = new BookingManager();
 
-    public static void main(String[] args) {
-        Server server = new Server();
-        server.startServer(PORT);
+    public static void main(String[] args) throws IOException, ClassNotFoundException {
+        File fich = new File("estadoApp");
+        Server server;
+        if (!fich.exists()) {
+            server = new Server();
+            server.startServer(PORT);
+        }
+        else {
+            ObjectInputStream is = new ObjectInputStream(new FileInputStream("estadoApp"));
+            server = (Server) is.readObject();
+            server.startServer(PORT);
+        }
+        ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream("estadoApp"));
+        os.writeObject(server);
     }
 
-    void startServer(int port){
-
+    void startServer(int port) throws IOException {
+        List<ClientHandler> threads = new ArrayList<>();
         try {
-            user_manager.restoreUsers();
-            booking_manager.restoreFlights(); // *** VERIFICAR ***
-            booking_manager.restoreFlightsPerDay(); // *** VERIFICAR ***
-        } catch (Exception e) {
-            System.out.println("Failed to restore file: " + e);
-        }
-
-        try (
-                ServerSocket server_socket = new ServerSocket(port);) {
+            ServerSocket server_socket = new ServerSocket(port);
             System.out.println("Server started, waiting for client connections");
+            Thread s = new ServerHandler(server_socket);
+            s.start();
             while (running) {
                 Socket client_socket = server_socket.accept();
-                Thread t = new ClientHandler(client_socket);
+                ClientHandler t = new ClientHandler(client_socket);
+                threads.add(t);
                 t.start();
+
             }
         } catch (IOException e) {
-            System.out.println(
-                    "Exception caught when trying to listen on port " + port + " or listening for a connection");
+            System.out.println("Server closing.");
+            for(ClientHandler t : threads){
+                t.getSocket().close();
+            }
         }
 
     }
 
+    private static class ServerHandler extends Thread {
+        Scanner sc;
+        ServerSocket server_socket;
+
+        public ServerHandler(ServerSocket server_socket){
+            this.server_socket = server_socket;
+            sc = new Scanner(System.in);
+        }
+        public void run(){
+            while(running){
+                if(sc.nextLine().equalsIgnoreCase("sair")){
+                    running = false;
+                    try {
+                        server_socket.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    System.out.println("RUNNING: " + running);
+                }
+            }
+        }
+
+    }
     private class ClientHandler extends Thread {
         final Socket sock;
-        final PrintWriter out;
-        final BufferedReader in;
+        final DataOutputStream out;
+        final DataInputStream in;
         boolean client_connected = true;
-        boolean is_logged_in = false;
         User user;
 
         public ClientHandler(Socket s) throws IOException {
             this.sock = s;
-            this.out = new PrintWriter(this.sock.getOutputStream(), true);
-            this.in = new BufferedReader(new InputStreamReader(this.sock.getInputStream()));
+            this.out = new DataOutputStream(this.sock.getOutputStream());
+            this.in = new DataInputStream(this.sock.getInputStream());
         }
+
+        public Socket getSocket() {
+            return sock;
+        }
+
 
         public void run() {
             System.out.println("New Client");
 
-            while (client_connected) {
+            while (client_connected && running) {
                 try {
-                    String in_data = in.readLine();
-                    if (in_data != null) {
-                        System.out.println("Received: '" + in_data + "'");
-                        executeRequest(in_data);
-                    } else {
-                        client_connected = false;
-                    }
+                    String in_data = in.readUTF();
+                    System.out.println("Received: '" + in_data + "'");
+                    executeRequest(in_data);
+                } catch (EOFException e) {
+                    client_connected = false;
                 } catch (Exception e) {
                     System.out.println("Error " + e);
                 }
@@ -94,7 +129,6 @@ class Server {
                     else {
                         boolean ok = user_manager.verifyUser(req.username, req.password);
                         if (ok) {
-                            is_logged_in = true;
                             user = user_manager.getUserByName(req.username);
                             response = new ResponseOk(true, "Login success");
                         } else {
@@ -109,7 +143,7 @@ class Server {
                     RequestRegister req = RequestRegister.deserialize(split_data[1]);
                     boolean ok = user_manager.addUser(req.username, req.password);
                     if (ok) {
-                        user_manager.saveUsers();
+                        //user_manager.saveUsers();
                         response = new ResponseOk(true, "Registed successful.");
                     } else {
                         response = new ResponseOk(false, "Regist failed.");
@@ -198,12 +232,12 @@ class Server {
             }
         }
 
-        void sendResponse(Response resp) {
-            this.out.println(resp.serialize());
+        void sendResponse(Response resp) throws IOException {
+            this.out.writeUTF(resp.serialize());
         }
     }
 
-    class User {
+    class User implements Serializable{
         int id;
         String name;
         String hash;
@@ -216,11 +250,8 @@ class Server {
         }
     }
 
-    static String BACKUP_FILE_USERS = "users.txt";
-    static String BACKUP_FILE_FLIGHTS = "flights.txt";
-    static String BACKUP_FILE_FLIGHTS_PER_DAY = "flightsPerDay.txt";
 
-    private class UserManager {
+    private class UserManager implements Serializable{
         List<User> users = new ArrayList<>();
 
         public boolean addUser(String name, String hash) {
@@ -231,28 +262,6 @@ class Server {
 
             users.add(new User(users.size() + 1, name, hash));
             return true;
-        }
-
-        public void saveUsers() throws IOException {
-            FileWriter file_writer = new FileWriter(BACKUP_FILE_USERS);
-            PrintWriter print_writer = new PrintWriter(file_writer);
-            for (User user : users) {
-                print_writer.printf("%d,%s,%s\n", user.id, user.name, user.hash);
-            }
-            print_writer.close();
-        }
-
-        public void restoreUsers() throws IOException {
-            FileReader file_reader = new FileReader(BACKUP_FILE_USERS);
-            BufferedReader buf_reader = new BufferedReader(file_reader);
-            String line = buf_reader.readLine();
-            while (line != null) {
-                String[] split = line.split(",");
-                // todo: verify split is ok
-                users.add(new User(Integer.parseInt(split[0]), split[1], split[2]));
-                line = buf_reader.readLine();
-            }
-            buf_reader.close();
         }
 
         public boolean verifyUser(String name, String hash) {
@@ -274,7 +283,7 @@ class Server {
     }
 
 
-    private class BookingManager {
+    private class BookingManager implements Serializable{
         public List<Flight> flights = new ArrayList<>(); // lista de voos geral
         public Map<Date, List<Flight>> flightsPerDay = new HashMap<>(); // Lista de voos para cada dia geral
         Map<Integer, Reserva> reservedBookings = new HashMap<>();
@@ -282,7 +291,7 @@ class Server {
 
 
 
-        public boolean closeDay(Date day) throws IOException, ParseException {
+        public boolean closeDay(Date day) throws IOException {
             for(Date d : daysClosed){
                 if(d.equals(day)){
                     return false;
@@ -315,9 +324,8 @@ class Server {
                 }
             }
         }
-        public void cancelDayReserves(Date day) throws IOException, ParseException {
+        public void cancelDayReserves(Date day) throws IOException {
             flightsPerDay.remove(day);
-            saveFlightsPerDay(); // confirmar isto
         }
 
 
@@ -333,7 +341,6 @@ class Server {
                 }
             }
             this.flights.add(f);
-            saveFlights(); // confirmar isto
             return true;
         }
 
@@ -390,10 +397,9 @@ class Server {
                     if (f.getSource().equalsIgnoreCase(source) && f.getDestination().equalsIgnoreCase(destination)) {
                         int capacity = f.getCapacity(); // WARNING: LOCK
                         if (capacity > 0) {
-                            System.out.println("found flight " + f);
                             return f;
                         } else {
-                            System.out.println("flight full " + f);
+                            System.out.println("Full flight.");
                             return null;
                         }
                     }
@@ -408,7 +414,6 @@ class Server {
                         List<Flight> new_flight_list = new ArrayList<>();
                         new_flight_list.add(f);
                         flightsPerDay.put(day, new_flight_list);
-                        saveFlightsPerDay();
                     }
                     ret = f;
                 }
@@ -416,69 +421,12 @@ class Server {
             return ret;
         }
 
-
-        public void saveFlights() throws IOException {
-            FileWriter file_writer = new FileWriter(BACKUP_FILE_FLIGHTS);
-            PrintWriter print_writer = new PrintWriter(file_writer);
-            for (Flight flight : flights) {
-                print_writer.printf("%s,%s,%d\n", flight.getSource(), flight.getDestination(), flight.getCapacity());
-            }
-            print_writer.close();
-        }
-
-        public void restoreFlights() throws IOException {
-            FileReader file_reader = new FileReader(BACKUP_FILE_FLIGHTS);
-            BufferedReader buf_reader = new BufferedReader(file_reader);
-
-            String line = buf_reader.readLine();
-            while (line != null) {
-                String[] split = line.split(",");
-                flights.add(new Flight(split[0], split[1], Integer.parseInt(split[2])));
-                line = buf_reader.readLine();
-            }
-            buf_reader.close();
-        }
-
-        public void saveFlightsPerDay() throws IOException {
-            SimpleDateFormat date_format = new SimpleDateFormat("dd/MM/yyyy");
-            FileWriter file_writer = new FileWriter(BACKUP_FILE_FLIGHTS_PER_DAY);
-            PrintWriter print_writer = new PrintWriter(file_writer);
-
-            for (Map.Entry<Date, List<Flight>> entry : flightsPerDay.entrySet()) {
-                String line = date_format.format(entry.getKey()) + ";";
-                for (Flight flight : entry.getValue()) {
-                    line += String.format("%s,%s,%d;", flight.getSource(), flight.getDestination(), flight.getCapacity());
-                }
-                line += "\n";
-                print_writer.write(line);
-            }
-            print_writer.close();
-        }
-
-        public void restoreFlightsPerDay() throws IOException, ParseException {
-            SimpleDateFormat date_format = new SimpleDateFormat("dd/MM/yyyy");
-            FileReader file_reader = new FileReader(BACKUP_FILE_FLIGHTS_PER_DAY);
-            BufferedReader buf_reader = new BufferedReader(file_reader);
-
-            String line = buf_reader.readLine();
-            while (line != null) {
-                String[] split = line.split(";");
-                Date date = date_format.parse(split[0]);
-                List<Flight> day_flights = new ArrayList<>();
-                for (int i = 1; i < split.length; i++) {
-                    String[] flight_split = split[i].split(",");
-                    day_flights.add(new Flight(flight_split[0], flight_split[1], Integer.parseInt(flight_split[2])));
-                }
-
-                flightsPerDay.put(date, day_flights);
-                line = buf_reader.readLine();
-            }
-            buf_reader.close();
-        }
-
         public boolean cancelReserve(int code, User user) {
             if(reservedBookings.get(code)!= null){
                 if(reservedBookings.get(code).user.equals(user)){
+                    for(Flight f : reservedBookings.get(code).trip){
+                        f.setCapacity(f.getCapacity()+1);
+                    }
                     reservedBookings.remove(code);
                     return true;
                 }
@@ -508,7 +456,7 @@ class Server {
         }
     }
 
-    private class Reserva {
+    private class Reserva implements Serializable{
         public int codeReserve;
         public Date day;
         public User user;
@@ -524,8 +472,4 @@ class Server {
 }
 
 
-
-
-// Meter em binario
 // locks
-// saves todos
