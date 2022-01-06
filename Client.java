@@ -13,7 +13,6 @@ public class Client {
     Scanner sc = new Scanner(System.in);
 
     public static void main(String[] args) {
-        System.out.println("Hello World! I'm Client");
         int port = 4545;
         try {
             Client client = new Client("localhost", port);
@@ -54,6 +53,7 @@ public class Client {
                 sendRequest(req);
                 data = in.readLine();
                 response = ResponseOk.deserialize(data);
+                System.out.println(response.message + "\n");
                 is_registed = response.status;
             } else if (option == 0) {
                 stopClient();
@@ -87,7 +87,7 @@ public class Client {
                 } else if (option == 0){
                     exit = true;
                 } else {
-                    System.out.println("Opcao Inválida");
+                    System.out.println("Opcão Inválida");
                     stopClient();
                     System.exit(1);
                 }
@@ -107,18 +107,23 @@ public class Client {
                         System.out.println(responseBooking.message);
                         System.out.println("Codigo da sua reserva: " + responseBooking.codeReserve + "\n");
                     }
-                    //reserva
                 } else if (option == 2) {
-                    //lista de voos
+                    ResponseFlightList responseFlightList;
+                    sendFlightListRequest();
+                    data = in.readLine();
+                    responseFlightList = ResponseFlightList.deserialize(data);
+                    if(!responseFlightList.status){
+                        System.out.println(responseFlightList.allFlights);
+                    }else{
+                        showFlightList(responseFlightList.allFlights);
+                    }
 
-                } else if (option == 3) { // 1º Aparecer a lista com os codigos de reserva do utilizador e de seguida pedir para ele inserir qual quer cancelar.
-                    sendListRequest();
+                } else if (option == 3) {
+                    sendCodeListRequest();
                     data = in.readLine();
                     ResponseBookedList bookedList = ResponseBookedList.deserialize(data);
                     if (!bookedList.status) {
-                        System.out.println("Ainda não tem nenhuma reserva feita.");
-                        System.exit(0); // apagar esta linha e fazer com que apareca
-                        // voltar ao inicio
+                        System.out.println("Ainda não tem nenhuma reserva feita.\n");
                     } else {
                         showBookedList(bookedList.listOfCodes);
                         sendBookingCancel();
@@ -126,12 +131,10 @@ public class Client {
                         ResponseBookingCancel responseBookingCancel = ResponseBookingCancel.deserialize(data);
                         System.out.println(responseBookingCancel.message + "\n");
                     }
-                    //cancelar uma reserva
                 } else if (option == 0) {
                     exit = true;
-                    //sair
                 } else {
-                    System.out.println("Opcao Inválida");
+                    System.out.println("Opcão Inválida");
                     stopClient();
                     System.exit(1);
                 }
@@ -141,7 +144,6 @@ public class Client {
     }
 
     void sendRequest(Request req) {
-        System.out.println("Executing: " + req.serialize());
         this.out.println(req.serialize());
     }
 
@@ -159,7 +161,7 @@ public class Client {
         sendRequest(req);
     }
 
-    void sendListRequest(){
+    void sendCodeListRequest(){
         Request req = new RequestBookedList();
         sendRequest(req);
     }
@@ -171,6 +173,11 @@ public class Client {
         Request req = new RequestAddFlight(source, destination, capacity);
         sendRequest(req);
 
+    }
+
+    void sendFlightListRequest(){
+        Request req = new RequestFlightList();
+        sendRequest(req);
     }
 
     void sendDayClose(){
@@ -196,10 +203,13 @@ public class Client {
 
     void showBookedList(String bookedList){
         System.out.println("Selecione um dos codigos que pretende cancelar.");
-        System.out.println("[" + bookedList + "]");
+        System.out.println("[" + bookedList + "]\n");
     }
 
+    void showFlightList(String allFlights){
+        System.out.println("A lista de voos disponiveis é dada por:\n[" + allFlights + "]\n");
 
+    }
 
 
     String insertUsername() {
@@ -258,6 +268,4 @@ public class Client {
         System.out.println("Insira a capacidade do aviao.");
         return sc.nextLine();
     }
-
-
 }

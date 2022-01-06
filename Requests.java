@@ -271,3 +271,32 @@ class ResponseCloseDay implements Response{
 
 
 }
+
+class RequestFlightList implements Request{
+    static final int REQUEST_NUMBER = 8;
+
+    public String serialize(){
+        return String.format("%d",REQUEST_NUMBER);
+    }
+}
+
+
+class ResponseFlightList implements  Response {
+    final boolean status;
+    final String allFlights;
+
+    public ResponseFlightList(boolean status,String allFlights){
+        this.status = status;
+        this.allFlights = allFlights;
+    }
+
+    public String serialize() {
+        return String.format("%b;%s", status, allFlights);
+    }
+
+
+    public static ResponseFlightList deserialize(String in_data) {
+        String[] split_data = in_data.split(";");
+        return new ResponseFlightList(Boolean.parseBoolean(split_data[0]), split_data[1]);
+    }
+}

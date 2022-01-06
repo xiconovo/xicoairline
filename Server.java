@@ -11,44 +11,21 @@ class Server {
     UserManager user_manager = new UserManager();
     BookingManager booking_manager = new BookingManager();
 
-    public static void main(String[] args) throws ParseException {
-        System.out.println("Hello World! I'm Server");
+    public static void main(String[] args) {
         Server server = new Server();
         server.startServer(PORT);
     }
 
-    void startServer(int port) throws ParseException {
-
-        /* BookingManager mng = new BookingManager();
-        try {
-            mng.restoreFlights();
-            mng.restoreFlightsPerDay();
-            SimpleDateFormat DateFor = new SimpleDateFormat("dd/MM/yyyy");
-            Date date = DateFor.parse("06/01/2022");
-            Date reserva = mng.reservedOnDate("braga-asdasd",date, date);
-            System.out.println("UM " + DateFor.format(reserva));
-            reserva = mng.reservedOnDate("braga-faro", date, date);
-            System.out.println("DOIS " +   DateFor.format(reserva));
-            mng.saveFlightsPerDay();
-
-
-        } catch (Exception e) {
-            System.out.println("fodeu" + e);
-        }
-        System.exit(1);
-
-         */
-
+    void startServer(int port){
 
         try {
             user_manager.restoreUsers();
             booking_manager.restoreFlights(); // *** VERIFICAR ***
             booking_manager.restoreFlightsPerDay(); // *** VERIFICAR ***
         } catch (Exception e) {
-            System.out.println("Failed to restore users: " + e);
+            System.out.println("Failed to restore file: " + e);
         }
 
-        System.out.println("Starting server on port: " + port);
         try (
                 ServerSocket server_socket = new ServerSocket(port);) {
             System.out.println("Server started, waiting for client connections");
@@ -132,9 +109,10 @@ class Server {
                     RequestRegister req = RequestRegister.deserialize(split_data[1]);
                     boolean ok = user_manager.addUser(req.username, req.password);
                     if (ok) {
-                        response = new ResponseOk(true, "Register success");
+                        user_manager.saveUsers();
+                        response = new ResponseOk(true, "Registed successful.");
                     } else {
-                        response = new ResponseOk(false, "Regist failed");
+                        response = new ResponseOk(false, "Regist failed.");
                     }
                     sendResponse(response);
                 }
@@ -162,7 +140,6 @@ class Server {
                     }else{
                         response = new ResponseBookedList(true,listOfCodes);
                     }
-                    System.out.println("STRING:" + listOfCodes);
                     sendResponse(response);
 
 
@@ -206,6 +183,18 @@ class Server {
                 }
                 break;
 
+                case RequestFlightList.REQUEST_NUMBER: {
+                    String flights = booking_manager.getAllFlights();
+                    if(flights.equalsIgnoreCase("")){
+                        response = new ResponseFlightList(false, "Ainda não existem voos disponíveis.");
+
+                    }else{
+                        response = new ResponseFlightList(true,flights);
+                    }
+                    sendResponse(response);
+                }
+                break;
+
             }
         }
 
@@ -237,7 +226,6 @@ class Server {
         public boolean addUser(String name, String hash) {
             User user_found = getUserByName(name);
             if (user_found != null) {
-                System.out.println("User already exists");
                 return false;
             }
 
@@ -306,6 +294,18 @@ class Server {
             return true;
         }
 
+        public String getAllFlights(){
+            String ret = "";
+            int size = flights.size();
+            for(int i = 0; i < size; i++){
+                if(i == size-1){
+                    ret += flights.get(i).getSource() + "-" + flights.get(i).getDestination();
+                } else{
+                    ret += flights.get(i).getSource() + "-" + flights.get(i).getDestination() + ",";
+                }
+            }
+            return ret;
+        }
         public void cancelAllReservesOnDay(Date day){
             Iterator<Map.Entry<Integer,Reserva>> itr = reservedBookings.entrySet().iterator();
             while(itr.hasNext()){
@@ -317,7 +317,7 @@ class Server {
         }
         public void cancelDayReserves(Date day) throws IOException, ParseException {
             flightsPerDay.remove(day);
-            saveFlightsPerDay();
+            saveFlightsPerDay(); // confirmar isto
         }
 
 
@@ -333,7 +333,7 @@ class Server {
                 }
             }
             this.flights.add(f);
-            saveFlights();
+            saveFlights(); // confirmar isto
             return true;
         }
 
@@ -433,11 +433,9 @@ class Server {
             String line = buf_reader.readLine();
             while (line != null) {
                 String[] split = line.split(",");
-                // todo: verify split is ok
                 flights.add(new Flight(split[0], split[1], Integer.parseInt(split[2])));
                 line = buf_reader.readLine();
             }
-            System.out.println("Restored " + flights.size() + " fligths");
             buf_reader.close();
         }
 
@@ -475,7 +473,6 @@ class Server {
                 flightsPerDay.put(date, day_flights);
                 line = buf_reader.readLine();
             }
-            System.out.println("Restored " + flightsPerDay.size() + " fligths per day");
             buf_reader.close();
         }
 
@@ -509,12 +506,6 @@ class Server {
             }
             return ret;
         }
-
-
-
-
-
-
     }
 
     private class Reserva {
@@ -530,6 +521,11 @@ class Server {
             this.trip = trip;
         }
     }
-
-
 }
+
+
+
+
+// Meter em binario
+// locks
+// saves todos
